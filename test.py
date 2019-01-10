@@ -48,7 +48,8 @@ if __name__ == "__main__":
     #描述数据
     print(df_300.describe())
     print(df_nas.describe())
-    print(df_300["成交日期"])
+    x = df_300["成交日期"]
+    #plt.figure() 
     plt.plot(df_300["成交均价"])
     plt.plot(df_nas["成交均价"])
     plt.savefig("成交均价.png")
