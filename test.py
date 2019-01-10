@@ -34,23 +34,27 @@ def DivData(Data):
     return (df_300, df_nas)
     
     
+def TransfDate2(s):
+    year = int(s[0:4])
+    month = int(s[5:7])    
+    day = int(s[8:11])
+    date = year*10000+month*100+day
+    return date
+    
+    
 #主程序
 if __name__ == "__main__":
-    # 导入数据
-    etfdata = ImportData("etfdata.csv")
-    print(etfdata)
-    # 探索数据
-    ExploreData(etfdata)
-    # 分离数据
-    (df_300, df_nas) = DivData(etfdata)
-    print(df_300)
-    print(df_nas)
-    #描述数据
-    print(df_300.describe())
-    print(df_nas.describe())
-    x = df_300["成交日期"]
-    #plt.figure() 
-    plt.plot(df_300["成交均价"])
-    plt.plot(df_nas["成交均价"])
-    plt.savefig("成交均价.png")
+    #d = 20180105
+#    year = int(d/10000)
+#    month = int((d - year*10000)/100)
+#    day = int((d - year*10000 - month*100))
+#    date = format("%4d-%02d-%02d" % (year, month, day))
+#    print(date)
+    
+    
+    #import tushare
+    #print(tushare.__version__)
+    s = "2018-11-25"
+    print(TransfDate2(s))
+    
     
