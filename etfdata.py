@@ -57,63 +57,77 @@ def TransfDate2(s):
     
     
 #抓取历史数据
-def GetHistoryData(Code, BeginTime):
-    df = ts.get_k_data(Code, index = False,  start = TransfDate(BeginTime))
+def GetHistoryData(Code, BeginTime, EndTime):
+    df = ts.get_k_data(Code, index = False,  start = TransfDate(BeginTime), end = TransfDate(EndTime))
     return df
+    
+    
+#测试数据，因为手工合并了同一天的多个
+#交易数据，验证一下。
+def TestData(data):
+    i = 0
+    v = data.成交量
+    p = data.成交均价
+    m1 = data.成交金额
+    f = data.手续费
+    m2 = data.发生金额
+    for date in data.成交日期:
+        a = v[i]*p[i]
+        b = a + f[i]
+        if m1[i] !=  a or m2[i] != b:
+            print("日期%d的数据出错 %f %f %f %f"%(date, m1[i], a, m2[i], b))
+        i = i+1
+    print("测试完毕")
     
     
 #根据投资记录和历史数据计算持仓收益率等数据。
 def Calculator(inverstData, histData):
-    #记录每次交易的股票量，成交金额，手续费
-    vol = []         #成交股票量
-    money = []  #成交金额(含手续费)
-    fee = []        #手续费
-    date = []      #日期
     i = 0
-    print(inverstData["成交日期"])
-    for d in histData.date:
-        time = d
-        #print(i, inverstData["成交量"][i], inverstData["成交金额"][i], inverstData["手续费"][i])
-        print(TransfDate2(time))
-        print(TransfDate2(time) in inverstData["成交日期"])
-        #第一个日期，一定是有交易记录的
-        if i == 0:
-            date.append(time)       
-            vol.append(inverstData["成交量"][i])
-            money.append(inverstData["成交金额"][i])
-            fee.append(inverstData["手续费"][i])
-        else:    #不是第一个日期
-            #先判断这个日期有没有交易,这里有问题
-            if TransfDate2(time) in inverstData["成交日期"]:
-                #该日期存在交易
-                print("a")
-            #再判断该日期是否已有交易被记录
-                if time in date:
-                    #该日期已有交易被记录，累加
-                    print("b")
-                    vol[i-1] += inverstData["成交量"][i]
-                    money[i-1] += inverstData["成交金额"][i]
-                    fee[i-1] += inverstData["手续费"][i]
-                else:
-                    #没有交易被记录，新增
-                    print("c")
-                    date.append(time)       
-                    vol.append(inverstData["成交量"][i] + vol[i-1]) 
-                    money.append(inverstData["成交金额"][i])
-                    fee.append(inverstData["手续费"][i])
-            #该日期没有交易，复制上一个交易日的持仓数据，其余为0
-            else:
-                print("d")
-                date.append(time)
-                vol.append(vol[i-1])
-                money.append(0.0)
-                fee.append(0.0)
-        i = i+1
-    #print(date)
-    #print(vol)
-    #print(money)
-    #print(fee)
+    j = 0
+    vol = []    #持仓股票数量
+    fee = []    #手续费
+    money = []   #投资总额
+    rate = []     #收益率
+    time = []   #时间
+    
+    for date in histData.date:
+        d1 = TransfDate2(date)
+        d2 = inverstData.成交日期[i]
+        b = (d1 == d2)
+        time.append(d1)
+        #该日期有交易，改变数据
+        if b == True:  
+            if i == 0: #第一天，直接插
+                vol.append(inverstData.成交量[i])
+                fee.append(inverstData.手续费[i])
+                money.append(inverstData.发生金额[i])
+                #计算收益率=市值/投资总额
+                rate.append( (vol[i]*histData.close[i])/money[i] - 1.0)
+            else: #不是第一天，但有交易
+                 vol.append(vol[j-1] + inverstData.成交量[i])
+                 fee.append(fee[j-1] + inverstData.手续费[i])
+                 money.append(money[j-1] + inverstData.发生金额[i])
+                 #计算收益率=市值/投资总额
+                 rate.append((vol[j]*histData.close[j])/money[j] -1.0)
+            i = i+1
+        else: #没有交易，复制上一天的数据
+            vol.append(vol[j-1])
+            fee.append(fee[j-1])
+            money.append(money[j-1])
+            rate.append((vol[j]*histData.close[j])/money[j] - 1.0)
+        j = j+1
+    data = pd.DataFrame({
+    "日期":time,
+    "持仓量":vol,
+    "手续费":fee,
+    "成本":money,
+    "收益率":rate})
+    return data
         
+        
+#合并两个数据，算出总的持仓收益率等数据
+def MergeData(data1, data2):
+    pass
     
 #主程序
 if __name__ == "__main__":
@@ -135,10 +149,11 @@ if __name__ == "__main__":
     plt.savefig("成交均价.png")
     
     #找出最早开始定投的时间
-    beginTime = df_300.成交日期.min()
+    #beginTime = df_300.成交日期.min()
+    #endTime = df_300.成交日期.max()
     #抓取历史价格数据
-    #df_300_hist = GetHistoryData("510300", beginTime)
-    #df_nas_hist = GetHistoryData("513100", beginTime)
+    #df_300_hist = GetHistoryData("510300", beginTime, endTime)
+    #df_nas_hist = GetHistoryData("513100", beginTime, endTime)
     #保存到csv文件
     #df_300_hist.to_csv("300etf.csv")
     #df_nas_hist.to_csv("nasetf.csv")
@@ -149,5 +164,17 @@ if __name__ == "__main__":
     df_300_hist = df_300_hist.loc[0:len(df_300_hist), ["date", "close"]]
     df_nas_hist = df_nas_hist.loc[0:len(df_nas_hist), ["date", "close"]]
     #print(df_300_hist)
-    Calculator(df_300, df_300_hist)
+    #TestData(df_300)
+    #TestData(df_nas)
+    data_300 = Calculator(df_300, df_300_hist)
+    data_nas = Calculator(df_nas, df_nas_hist)
+    #将收益率数据合并，算出总的持仓数据
+    MergeData(data_300, data_nas)
+    plt.figure()
+    plt.plot(data_300.收益率, label = "300etf")
+    plt.plot(data_nas.收益率, label = "纳指etf")
+    plt.legend(loc = "upper right")
+    plt.savefig("收益率.png")
+    
+    
     
