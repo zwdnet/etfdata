@@ -200,6 +200,7 @@ if __name__ == "__main__":
     data_nas = Calculator(df_nas, df_nas_hist)
     #将收益率数据合并，算出总的持仓数据
     data_total = MergeData(data_300, data_nas, df_300_hist, df_nas_hist)
+    data_total.to_csv("total_etf.csv")
     plt.figure()
     plt.plot(data_300.收益率, label = "300etf")
     plt.plot(data_nas.收益率, label = "nasetf")
