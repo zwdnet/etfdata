@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 # 用Python分析etf数据
 #作者:赵瑜敏 zwdnet@163.com
+# 用来测试一些我不熟悉的python语法的地方
 
 import pandas as pd
 from pandas import Series, DataFrame
