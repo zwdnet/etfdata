@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import tushare as ts
 
 
-#从csv文件读入数据
+#从csv文件中读入数据
 def ImportData(FileName):
     df = pd.read_csv(FileName)
     return df
