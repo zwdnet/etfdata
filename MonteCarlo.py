@@ -51,6 +51,17 @@ def Judgement(data):
     days_per_year = Days(int(dateend/10000))
     MinRate = minInput/days*days_per_year
     print(MaxRate, MinRate)
+    #计算最大回撤率
+    i = 0
+    maxRedraw = 0.0
+    maxRedrawRate = 0.0
+    for rate in data.收益率:
+        Redraw = data.收益率[i:].max() - data.收益率[i:].min()
+        RedrawRate = Redraw/data.收益率[i:].max()
+        if RedrawRate > maxRedrawRate:
+            maxRedrawRate = RedrawRate
+        i += 1
+    print(maxRedrawRate)
     
 
 if __name__=="__main__":
