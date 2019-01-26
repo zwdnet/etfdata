@@ -111,10 +111,13 @@ if __name__ == "__main__":
     #print(tushare.__version__)
     #s = "2018-11-25"
     #print(TransfDate2(s))
-    df = pd.DataFrame(np.arange(12).reshape(3,4), columns=["a", "b", "c", "d"])
+    df = pd.DataFrame(np.arange(16).reshape(4,4), columns=["a", "b", "c", "d"])
     print(df)
-    print(df.d)
-    print(df["d"][0])
-    print(3 == df["d"][0])
+    #print(df.d)
+    #print(df["d"][0])
+    #print(3 == df["d"][0])
+    print(df.d[1:4])
+    print(df.d[1:].max())
+    print(df.d[1:4].min())
     
     
