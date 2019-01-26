@@ -28,7 +28,7 @@ def Days(year):
         return 365
 
 #计算投资策略的相关评价数据
-def Judgement(data, basedata):
+def Judgement(data, basedata, saferate):
     #1.计算年化收益率，算最大最小的吧
     maxInput = data.收益率.max()
     minInput = data.收益率.min()
@@ -75,19 +75,21 @@ def Judgement(data, basedata):
     mean_rate = data.收益率.mean()
     std_rate = data.收益率.std()
     #print(mean_rate, std_rate)
+    
+    #saferate为无风险收益，余额宝的收益
     #计算β系数
     #以余额宝收益率3%为无风险收益率
     n = len(data)
     rate_year = (data.收益率[n-1]/data.收益率[0])**(250.0/n - 1)
     baserate_year = (basedata.close[n-1]/basedata.close[0])**(250.0/n - 1)
-    beta = (rate_year-0.03)/(baserate_year-0.03)
+    beta = (rate_year-saferate)/(baserate_year-saferate)
     #print(beta)
     #4.计算α系数
-    # print(rate_year-0.03, beta*(baserate_year-0.03))
-    alpha = rate_year - 0.03 - beta*(baserate_year - 0.03)
+    # print(rate_year-saferate, beta*(baserate_year-saferate))
+    alpha = rate_year - saferate - beta*(baserate_year - saferate)
     #print(alpha)
     #5.计算夏普指数
-    shape = (mean_rate-0.03)/std_rate
+    shape = (mean_rate-saferate)/std_rate
     #print(shape)
     return pd.Series([MaxRate, MinRate, maxRedrawRate, beta, alpha, shape])
     
@@ -98,5 +100,5 @@ if __name__=="__main__":
     df_300 = pd.read_csv("300etf.csv")
     print(df_etf.head())
     print(df_300.head())
-    result = Judgement(df_etf, df_300)
+    result = Judgement(df_etf, df_300, 0.029)
     print(result)

@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 # 用Python分析etf数据
 #作者:赵瑜敏 zwdnet@163.com
+#此文件废弃，重新开一个分支计算各种指标。
 
 import pandas as pd
 from pandas import Series, DataFrame
