@@ -97,6 +97,49 @@ def TransfDate2(s):
     #print(fee)
 '''
     
+#测试计算年化收益率的方法
+def yearRate(data):
+    #普通收益率
+    c = np.diff(data)
+    print(c)
+    print(data[:-1])
+    ret = c/data[:-1]
+    print(ret)
+    #对数收益率
+    logret = np.diff(np.log(data))
+    print(logret)
+    #年波动率
+    year = (np.std(logret)/np.mean(logret))/np.sqrt(1/252)
+    print(year)
+    
+    
+#测试DataFrame的各种索引方式
+def testDF():
+    data = [[1, 2, 3], [4, 5, 6]]
+    index = [0, 1]
+    columns = ['a', 'b', 'c']
+    df = pd.DataFrame(data = data, index = index, columns = columns)
+    print(df)
+    print(df.loc[1]) #按行索引
+    print(df.loc[0:]) #多行
+    print(df.loc[1, ['a', 'c']]) #多行多列
+    print(df.iloc[1])   #按行号索引
+    print(df.iloc[-1])
+    print(df.ix[0])   #混合索引
+    
+    
+    
+#测试cummax函数
+def testcummax():
+    df = pd.DataFrame(np.arange(16, 0, -1).reshape(8,2), columns = ['a', 'b'])
+    print(df)
+    dfcum = df.cummax()
+    print(dfcum)
+    md = (dfcum - df)/dfcum
+    print(md, md.max())
+    
+    
+    
 #主程序
 if __name__ == "__main__":
     #d = 20180105
@@ -111,13 +154,18 @@ if __name__ == "__main__":
     #print(tushare.__version__)
     #s = "2018-11-25"
     #print(TransfDate2(s))
-    df = pd.DataFrame(np.arange(16).reshape(4,4), columns=["a", "b", "c", "d"])
-    print(df)
+    #df = pd.DataFrame(np.arange(16).reshape(4,4), columns=["a", "b", "c", "d"])
+    #print(df)
     #print(df.d)
     #print(df["d"][0])
     #print(3 == df["d"][0])
-    print(df.d[1:4])
-    print(df.d[1:].max())
-    print(df.d[1:4].min())
+    #print(df.d[1:4])
+    #print(df.d[1:].max())
+    #print(df.d[1:4].min())
+    #data = [4,7,10,4]
+    #yearRate(data)
+    #testDF()
+    testcummax()
+    
     
     

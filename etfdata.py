@@ -139,6 +139,7 @@ def MergeData(data1, data2, histData1, histData2):
     market = []   #总的股票市值
     rate = []         #总的收益率
     time = []        #日期
+    income = []   #收益
     i = 0
     for date in histData1.date:
         date = TransfDate2(date)
@@ -147,6 +148,7 @@ def MergeData(data1, data2, histData1, histData2):
         fee.append(data1.手续费[i] + data2.手续费[i])
         market.append(data1.市值[i] + data2.市值[i])
         #计算收益率
+        income.append(market[i]/money[i])
         rate.append(market[i]/money[i] - 1.0)
         i = i + 1
     data = pd.DataFrame({
@@ -154,6 +156,7 @@ def MergeData(data1, data2, histData1, histData2):
     "成本":money,
     "手续费":fee,
     "市值":market,
+    "收益":income,
     "收益率":rate
     })
     return data
