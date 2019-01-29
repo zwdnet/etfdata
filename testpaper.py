@@ -9,6 +9,8 @@ from scipy import stats
 
 import tushare as ts
 
+import index
+
 
 #获取数据
 def get_data(code, start_date = '2009-01-01',  end_date = '2019-01-25'):
@@ -82,6 +84,17 @@ if __name__ == "__main__":
     AB["beta"] = beta
     AB.index = rets.columns[1:]
     print(AB)
+    #测试index库
+    x = rets.iloc[:, 0].values
+    y = rets.iloc[:, 1].values
+    data = pd.DataFrame({
+    "数据":y
+    })
+    basedata = pd.DataFrame({
+    "数据":x
+    })
+    print(data.head(), basedata.head())
+    print(index.AlphaBeta(data, basedata))
     #夏普比例
     exReturn = rets - 0.03/250
     sharperatio = np.sqrt(len(exReturn))*exReturn.mean()/exReturn.std()
@@ -97,3 +110,7 @@ if __name__ == "__main__":
     print(INR)
     indicators = pd.concat([TR,MD,AB,SHR,INR], axis = 1, join = 'outer')
     print(indicators.round(3))
+    
+    
+    result = index.index(data, basedata, 0.03)
+    print(result)
