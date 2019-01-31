@@ -4,101 +4,74 @@
 import pandas as pd
 import datetime
 import numpy as np
-
-
-#将八位数字格式日期转化为datetime类型
-def GetDatetime(d):
-    year = int(d/10000)
-    month = int((d - year*10000)/100)
-    day = int((d - year*10000 - month*100))
-    date = datetime.datetime(year, month, day)
-    return date
-
-
-#返回指定年份的天数
-def Days(year):
-    if year % 100 == 0:
-        if year % 400 == 0:
-            return 366
-        else:
-            return 365
-    elif year % 4 == 0:
-        return 366
-    else:
-        return 365
-
-#计算投资策略的相关评价数据
-def Judgement(data, basedata, saferate):
-    #1.计算年化收益率，算最大最小的吧
-    maxInput = data.收益率.max()
-    minInput = data.收益率.min()
-    #print(maxInput, minInput)
-    #计算最大年化收益率
-    dateend = data[data.收益率 == maxInput].日期
-    datebegin = data.日期[0]
-    #print(datebegin)
-    dateb = GetDatetime(datebegin)
-    datee = GetDatetime(dateend)
-    days = (datee - dateb).days
-    #print(days)
-    days_per_year = Days(int(dateend/10000))
-    MaxRate = maxInput/days*days_per_year
-    #计算最大损失率
-    dateend = data[data.收益率 == minInput].日期
-    #print(dateend)
-    datee = GetDatetime(dateend)
-    days = (datee - dateb).days
-    #print(days)
-    days_per_year = Days(int(dateend/10000))
-    MinRate = minInput/days*days_per_year
-    #print(MaxRate, MinRate)
-    #2.计算最大回撤率
-    i = 0
-    maxRedraw = 0.0
-    maxRedrawRate = 0.0
-    for rate in data.收益率:
-        Redraw = data.收益率[i:].max() - data.收益率[i:].min()
-        RedrawRate = Redraw/data.收益率[i:].max()
-        if RedrawRate > maxRedrawRate:
-            maxRedrawRate = RedrawRate
-        i += 1
-    #print(maxRedrawRate)
-    #3.计算beta比例
-    #用平均收益率，先计算沪深300的基准收益率,以及标准差
-    baserate = [0.0] #设第一天收益率为0
-    i = 0
-    for i in range(1, len(basedata.close)):
-        baserate.append((basedata.close[i] - basedata.close[i-1])/basedata.close[i-1])
-    mean_baserate = np.mean(baserate)
-    std_baserate = np.std(baserate)
-    #计算投资组合的平均收益率
-    mean_rate = data.收益率.mean()
-    std_rate = data.收益率.std()
-    #print(mean_rate, std_rate)
-    
-    #saferate为无风险收益，余额宝的收益
-    #计算β系数
-    #以余额宝收益率3%为无风险收益率
-    n = len(data)
-    rate_year = (data.收益率[n-1]/data.收益率[0])**(250.0/n - 1)
-    baserate_year = (basedata.close[n-1]/basedata.close[0])**(250.0/n - 1)
-    beta = (rate_year-saferate)/(baserate_year-saferate)
-    #print(beta)
-    #4.计算α系数
-    # print(rate_year-saferate, beta*(baserate_year-saferate))
-    alpha = rate_year - saferate - beta*(baserate_year - saferate)
-    #print(alpha)
-    #5.计算夏普指数
-    shape = (mean_rate-saferate)/std_rate
-    #print(shape)
-    return pd.Series([MaxRate, MinRate, maxRedrawRate, beta, alpha, shape])
+import index
     
     
+'''执行一次交易模拟
+输入的参数
+cost 总交易成本
+time 交易周期的天数
+freq 交易频率，几天交易一次
+df_300, df_nas,分别为两个定投的etf的实盘成交数据
+返回值为一个DataFrame，包含每个交易日的成本，收益，收益率等数据
+'''
+def work(cost, time, freq, df_300, df_nad):
+    #计算交易次数
+    tradetimes = int(time/freq)
+    print(tradetimes)
+    #计算每次交易的金额
+    money = cost/tradetimes
+    print(money)
+    #把每次交易金额均分为两部分，分别买两个etf，如果钱不够交易，留到下次
+    money_300 = money/2.0
+    money_nas = money/2.0
+    #开始模拟前定义相关变量
+    money = [] #投入的总成本
+    m3 = 0.0 #买300etf的钱
+    mN = 0.0 #买纳指etf的钱
+    fee = [] #手续费
+    V3 = [] #300etf股票数量
+    VN = [] #纳指etf股票数量
+    Total3 = [] #300etf的当前市值
+    TotalN = [] #纳指etf的当前市值
+    Total = [] #当前总市值
+    Income3 = [] #300etf的收益
+    IncomeN = [] #nasetf的收益
+    Rate3 = [] #300etf收益率
+    RateN = [] #nasetf收益率
+    Rate = [] #总收益率
+    
+    #开始模拟
+    j = 0
+    for i in range(time):
+        if j == 0:   #交易
+            
+    
+        
 
 if __name__=="__main__":
+    #实盘数据分析
     df_etf = pd.read_csv("total_etf.csv")
     df_300 = pd.read_csv("300etf.csv")
-    print(df_etf.head())
-    print(df_300.head())
-    result = Judgement(df_etf, df_300, 0.029)
+    df_nas = pd.read_csv("nasetf.csv")
+    df_data = pd.DataFrame(
+    {
+    "数据":df_etf["收益率"].values
+    }
+    )
+    df_base = pd.DataFrame(
+    {
+    "数据":df_300["close"].values
+    }
+    )
+    result = index.index(df_data, df_base, 0.029)
     print(result)
+    #进行模拟
+    #先获取成本，交易周期等信息
+    cost = df_etf["成本"].values[-1]
+    print(cost)
+    time = len(df_etf)
+    #进行交易模拟
+    work(cost, time, 10, df_300, df_nas)
+    
+    
