@@ -5,6 +5,7 @@ import pandas as pd
 import datetime
 import numpy as np
 import index
+import matplotlib.pyplot as plt
     
     
 '''执行一次交易模拟
@@ -18,10 +19,10 @@ df_300, df_nas,分别为两个定投的etf的实盘成交数据
 def work(cost, time, freq, df_300, df_nad):
     #计算交易次数
     tradetimes = int(time/freq)
-    print(tradetimes)
+    #print(tradetimes)
     #计算每次交易的金额
     money = cost/tradetimes
-    print(money)
+    #print(money)
     #手续费比率
     fee_rate = 0.0003
     #把每次交易金额均分为两部分，分别买两个etf，如果钱不够交易，留到下次
@@ -91,6 +92,8 @@ def work(cost, time, freq, df_300, df_nad):
         else:    #不交易
             fee.append(0.0)
             cost.append(cost[i-1])
+            cost3.append(cost3[i-1])
+            costN.append(costN[i-1])
             V3.append(V3[i-1])
             VN.append(VN[i-1])
         #无论是否交易都要算的持仓市值，收益，收益率
@@ -100,7 +103,6 @@ def work(cost, time, freq, df_300, df_nad):
         Total3.append(V3[i]*df_300["close"][i])
         TotalN.append(VN[i]*df_nas["close"][i])
         Total.append(Total3[i] + TotalN[i])
-        print(len(Total3), len(cost3), i)
         Income3.append(Total3[i] - cost3[i])
         IncomeN.append(TotalN[i] - costN[i])   
         Income.append(Income3[i] + IncomeN[i])
@@ -110,14 +112,23 @@ def work(cost, time, freq, df_300, df_nad):
         
     data = pd.DataFrame(
     {
-    "成本":cost.values,
-    "手续费":fee.values,
-    "市值":Total.values,
-    "收益":Income.values,
-    "收益率":Rate.values
+    "成本":cost,
+    "手续费":fee,
+    "市值":Total,
+    "收益":Income,
+    "收益率":Rate
     }
     )
     return data
+    
+    
+#按不同交易频率进行交易
+def Run(cost, time, df_300, df_nas):
+    data = []
+    for freq in range(1, 31):
+        data.append(work(cost, time, freq, df_300, df_nas))
+    return data
+
 
 if __name__=="__main__":
     #实盘数据分析
@@ -134,8 +145,8 @@ if __name__=="__main__":
     "数据":df_300["close"].values
     }
     )
-    result = index.index(df_data, df_base, 0.029)
-    print(result)
+    #result = index.index(df_data, df_base, 0.029)
+    #print(result)
     #进行模拟
     #先获取成本，交易周期等信息
     cost = df_etf["成本"].values[-1]
@@ -144,5 +155,45 @@ if __name__=="__main__":
     #进行交易模拟
     data = work(cost, time, 10, df_300, df_nas)
     print(data.head())
-    
+    testdata = pd.DataFrame(
+    {
+    "数据":data["收益率"].values
+    }
+    )
+    result = index.index(testdata, df_base, 0.03)
+    print(result)
+    #测试成功，现在模拟不同交易频率对结果的影响
+    testresult = Run(cost, time, df_300, df_nas)
+    testindex = [] #保存测试结果的回测指标
+    for res in testresult:
+        print(res.head())
+        test = pd.DataFrame(
+        {
+        "数据":res["收益率"].values
+        }
+        )
+        testindex.append(index.index(test, df_base, 0.03))
+    AR = []
+    MD = []
+    alpha = []
+    shaper = []
+    for test in testindex:
+        print(test.head())
+        AR.append(test["年化收益率"])
+        MD.append(test["最大回撤"])
+        alpha.append(test["α系数"])
+        shaper.append(test["夏普系数"])
+        #数据可视化
+        fig = plt.figure()
+        plt.plot(AR)
+        fig.savefig("montecarlo_ar.png")
+        fig = plt.figure()
+        plt.plot(MD)
+        fig.savefig("montecarlo_md.png")
+        fig = plt.figure()
+        plt.plot(alpha)
+        fig.savefig("montecarlo_α.png")
+        fig = plt.figure()
+        plt.plot(shaper)
+        fig.savefig("montecarlo_shaper.png")
     
