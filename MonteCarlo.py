@@ -6,6 +6,7 @@ import datetime
 import numpy as np
 import index
 import matplotlib.pyplot as plt
+import etfdata
     
     
 '''执行一次交易模拟
@@ -132,68 +133,95 @@ def Run(cost, time, df_300, df_nas):
 
 if __name__=="__main__":
     #实盘数据分析
-    df_etf = pd.read_csv("total_etf.csv")
-    df_300 = pd.read_csv("300etf.csv")
-    df_nas = pd.read_csv("nasetf.csv")
-    df_data = pd.DataFrame(
-    {
-    "数据":df_etf["收益率"].values
-    }
-    )
-    df_base = pd.DataFrame(
-    {
-    "数据":df_300["close"].values
-    }
-    )
-    #result = index.index(df_data, df_base, 0.029)
-    #print(result)
-    #进行模拟
-    #先获取成本，交易周期等信息
-    cost = df_etf["成本"].values[-1]
-    print(cost)
-    time = len(df_etf)
-    #进行交易模拟
-    data = work(cost, time, 10, df_300, df_nas)
-    print(data.head())
-    testdata = pd.DataFrame(
-    {
-    "数据":data["收益率"].values
-    }
-    )
-    result = index.index(testdata, df_base, 0.03)
-    print(result)
-    #测试成功，现在模拟不同交易频率对结果的影响
-    testresult = Run(cost, time, df_300, df_nas)
-    testindex = [] #保存测试结果的回测指标
-    for res in testresult:
-        print(res.head())
-        test = pd.DataFrame(
-        {
-        "数据":res["收益率"].values
-        }
-        )
-        testindex.append(index.index(test, df_base, 0.03))
-    AR = []
-    MD = []
-    alpha = []
-    shaper = []
-    for test in testindex:
-        print(test.head())
-        AR.append(test["年化收益率"])
-        MD.append(test["最大回撤"])
-        alpha.append(test["α系数"])
-        shaper.append(test["夏普系数"])
-    #数据可视化
-    fig = plt.figure()
-    plt.plot(AR)
-    fig.savefig("montecarlo_ar.png")
-    fig = plt.figure()
-    plt.plot(MD)
-    fig.savefig("montecarlo_md.png")
-    fig = plt.figure()
-    plt.plot(alpha)
-    fig.savefig("montecarlo_α.png")
-    fig = plt.figure()
-    plt.plot(shaper)
-    fig.savefig("montecarlo_shaper.png")
+#    df_etf = pd.read_csv("total_etf.csv")
+#    df_300 = pd.read_csv("300etf.csv")
+#    df_nas = pd.read_csv("nasetf.csv")
+#    df_data = pd.DataFrame(
+#    {
+#    "数据":df_etf["收益率"].values
+#    }
+#    )
+#    df_base = pd.DataFrame(
+#    {
+#    "数据":df_300["close"].values
+#    }
+#    )
+#    #result = index.index(df_data, df_base, 0.029)
+#    #print(result)
+#    #进行模拟
+#    #先获取成本，交易周期等信息
+#    cost = df_etf["成本"].values[-1]
+#    print(cost)
+#    time = len(df_etf)
+#    #进行交易模拟
+#    data = work(cost, time, 10, df_300, df_nas)
+#    print(data.head())
+#    testdata = pd.DataFrame(
+#    {
+#    "数据":data["收益率"].values
+#    }
+#    )
+#    result = index.index(testdata, df_base, 0.03)
+#    print(result)
+#    #测试成功，现在模拟不同交易频率对结果的影响
+#    testresult = Run(cost, time, df_300, df_nas)
+#    testindex = [] #保存测试结果的回测指标
+#    for res in testresult:
+#        print(res.head())
+#        test = pd.DataFrame(
+#        {
+#        "数据":res["收益率"].values
+#        }
+#        )
+#        testindex.append(index.index(test, df_base, 0.03))
+#    AR = []
+#    MD = []
+#    alpha = []
+#    shaper = []
+#    for test in testindex:
+#        print(test.head())
+#        AR.append(test["年化收益率"])
+#        MD.append(test["最大回撤"])
+#        alpha.append(test["α系数"])
+#        shaper.append(test["夏普系数"])
+#    #数据可视化
+#    fig = plt.figure()
+#    plt.plot(AR)
+#    fig.savefig("montecarlo_ar.png")
+#    fig = plt.figure()
+#    plt.plot(MD)
+#    fig.savefig("montecarlo_md.png")
+#    fig = plt.figure()
+#    plt.plot(alpha)
+#    fig.savefig("montecarlo_α.png")
+#    fig = plt.figure()
+#    plt.plot(shaper)
+#    fig.savefig("montecarlo_shaper.png")
+    #获取从2013年5月15日至2019年02月01日的数据
+    #beginTime = 20130515
+#    endTime = 20190201
+#    etf300 = etfdata.GetHistoryData("510300", beginTime, endTime)
+#    etfnas = etfdata.GetHistoryData("513100", beginTime, endTime)
+#    print(len(etf300), len(etfnas))
+#    #保存文件
+#    etf300.to_csv("df_300_hist.csv")
+#    etfnas.to_csv("df_nas_hist.csv")
+    #读取数据
+    df_300 = pd.read_csv("df_300_hist.csv")
+    df_nas = pd.read_csv("df_nas_hist.csv")
+    #只保留收盘价
+    length1 = len(df_300)
+    length2 = len(df_nas)
+    df_300 = df_300.loc[0:length1, ["date", "close"]]
+    df_nas = df_nas.loc[0:length2, ["date", "close"]]
+    print(len(df_300), len(df_nas))
+    #for i in range(len(df_nas)):
+#        date1 = etfdata.TransfDate2(df_300["date"][i])
+#        date2 = etfdata.TransfDate2(df_nas["date"][i])
+#        if date1 != date2:
+#            print(i)
+#        else:
+#            print(i, date1, date2)
+    
+    
     
