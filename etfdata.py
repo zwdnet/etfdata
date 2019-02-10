@@ -1,219 +1,251 @@
 # -*- coding:utf-8 -*-
-# 用Python分析etf数据
-#作者:赵瑜敏 zwdnet@163.com
-#此文件废弃，重新开一个分支计算各种指标。
+#对数据用蒙特卡洛算法进行分析
 
 import pandas as pd
-from pandas import Series, DataFrame
+import datetime
+import numpy as np
+import index
 import matplotlib.pyplot as plt
-import tushare as ts
-
-
-#从csv文件中读入数据
-def ImportData(FileName):
-    df = pd.read_csv(FileName)
-    return df
+import etfdata
     
     
-#探索数据
-def ExploreData(Data):
-    #每列的索引名称
-    print(Data.columns)
-    print(Data["成交金额"])
-    print(Data.证券代码)
-    #输出指定行的信息
-    print(Data.ix[1])
-    #返回Data的值
-    print(Data.values)
-    #对数据进行筛选
-    print(Data[Data["证券名称"] == "300ETF"])
+'''执行一次交易模拟
+输入的参数
+cost_pertime 每次投入金额
+time 交易周期的天数
+freq 交易频率，几天交易一次
+df_300, df_nas,分别为两个定投的etf的实盘成交数据
+返回值为一个DataFrame，包含每个交易日的成本，收益，收益率等数据
+'''
+def work(cost_pertime, time, freq, df_300, df_nas):
+    #计算交易次数
+    tradetimes = int(time/freq)
+    #print(tradetimes)
+    #print(money)
+    #手续费比率
+    fee_rate = 0.0003
+    #把每次交易金额均分为两部分，分别买两个etf，如果钱不够交易，留到下次
+    money_300 = cost_pertime/2.0
+    money_nas = cost_pertime/2.0
+    #下面两个是每次变动的成本
+    m_300 = money_300
+    m_nas = money_nas
+    #开始模拟前定义相关变量
+    cost = [] #投入的总成本
+    cost3 = [] #买300etf的成本
+    costN = [] #买纳指etf的成本
+    m3 = 0.0 #买300etf的钱
+    mN = 0.0 #买纳指etf的钱
+    fee = [] #手续费
+    V3 = [] #300etf股票数量
+    VN = [] #纳指etf股票数量
+    Total3 = [] #300etf的当前市值
+    TotalN = [] #纳指etf的当前市值
+    Total = [] #当前总市值
+    Income3 = [] #300etf的收益
+    IncomeN = [] #nasetf的收益
+    Income = [] #总收益
+    Rate3 = [] #300etf收益率
+    RateN = [] #nasetf收益率
+    Rate = [] #总收益率
+    #每次交易剩下的钱
+    money_300_rem = 0.0
+    money_nas_rem = 0.0
     
-    
-#分离数据:根据买入的etf的不同划分数据
-def DivData(Data):
-    df_300 = Data[Data["证券名称"] == "300ETF"]
-    df_nas = Data[Data["证券名称"] == "纳指ETF"]
-    #重置index
-    df_300.index = range(len(df_300))
-    df_nas.index = range(len(df_nas))
-    return (df_300, df_nas)
-    
- 
-#将八位数字的日期转换为yyyy-mm-dd
-def TransfDate(d):
-    year = int(d/10000)
-    month = int((d - year*10000)/100)
-    day = int((d - year*10000 - month*100))
-    date = format("%4d-%02d-%02d" % (year, month, day))
-    return date
-    
-
-#上面函数的逆操作，将日期转化为数字
-def TransfDate2(s):
-    year = int(s[0:4])
-    month = int(s[5:7])    
-    day = int(s[8:11])
-    date = year*10000+month*100+day
-    return date
-    
-    
-#抓取历史数据
-def GetHistoryData(Code, BeginTime, EndTime):
-    df = ts.get_k_data(Code, index = False,  start = TransfDate(BeginTime), end = TransfDate(EndTime))
-    return df
-    
-    
-#测试数据，因为手工合并了同一天的多个
-#交易数据，验证一下。
-def TestData(data):
-    i = 0
-    v = data.成交量
-    p = data.成交均价
-    m1 = data.成交金额
-    f = data.手续费
-    m2 = data.发生金额
-    for date in data.成交日期:
-        a = v[i]*p[i]
-        b = a + f[i]
-        if m1[i] !=  a or m2[i] != b:
-            print("日期%d的数据出错 %f %f %f %f"%(date, m1[i], a, m2[i], b))
-        i = i+1
-    print("测试完毕")
-    
-    
-#根据投资记录和历史数据计算持仓收益率等数据。
-def Calculator(inverstData, histData):
-    i = 0
+    #开始模拟
     j = 0
-    vol = []    #持仓股票数量
-    fee = []    #手续费
-    money = []   #投资总额
-    rate = []     #收益率
-    time = []   #时间
-    market = []  #股票市值
-    
-    for date in histData.date:
-        d1 = TransfDate2(date)
-        d2 = inverstData.成交日期[i]
-        b = (d1 == d2)
-        time.append(d1)
-        #该日期有交易，改变数据
-        if b == True:  
-            if i == 0: #第一天，直接插
-                vol.append(inverstData.成交量[i])
-                fee.append(inverstData.手续费[i])
-                money.append(inverstData.发生金额[i])
-                market.append(vol[i]*histData.close[i])
-                #计算收益率=市值/投资总额
-                rate.append(market[i]/money[i] - 1.0)
-            else: #不是第一天，但有交易
-                 vol.append(vol[j-1] + inverstData.成交量[i])
-                 fee.append(fee[j-1] + inverstData.手续费[i])
-                 money.append(money[j-1] + inverstData.发生金额[i])
-                 market.append(vol[j]*histData.close[j])
-                 #计算收益率=市值/投资总额
-                 rate.append(market[j]/money[j] -1.0)
-            i = i+1
-        else: #没有交易，复制上一天的数据
-            vol.append(vol[j-1])
-            fee.append(fee[j-1])
-            money.append(money[j-1])
-            market.append(vol[j]*histData.close[j])
-            rate.append(market[j]/money[j] - 1.0)
-        j = j+1
-    data = pd.DataFrame({
-    "日期":time,
-    "持仓量":vol,
+    t = 0 #交易次数
+    for i in range(time):
+        if j == 0:   #交易
+            #计算可以买的股票数量
+            num_300 = int(m_300/df_300["close"][i]/100)*100
+            num_nas = int(m_nas/df_nas["close"][i]/100)*100
+            if i == 0:
+                V3.append(num_300)
+                VN.append(num_nas)
+            else:
+                V3.append(V3[i-1] + num_300)
+                VN.append(VN[i-1]+ num_nas)
+            #计算购入成本
+            m3 = num_300*df_300["close"][i]
+            fee_300 = m3*fee_rate
+            if fee_300 < 0.1:
+                fee_300 = 0.1
+            money_300_rem = money_300 - m3 - fee_300
+            m_300 = m_300 + money_300_rem - m3 - fee_300
+            mN = num_nas*df_nas["close"][i]
+            fee_nas = mN*fee_rate
+            if fee_nas < 0.1:
+                fee_nas = 0.1
+            fee.append(fee_300 + fee_nas)
+            money_nas_rem = money_nas - mN - fee_nas
+            m_nas = m_nas + money_nas_rem - mN - fee_nas
+            
+            print(i, m_300, m_nas)
+            #计算总成本
+            #total_cost = m3+fee_300+mN+fee_nas
+            cost3.append(money_300*(t+1))
+            costN.append(money_nas*(t+1))
+            cost.append(cost_pertime*(t+1))
+            t += 1
+            print(i, cost3[i], costN[i], cost[i])
+            #其它数据无论是否交易都要算，放最后
+        else:    #不交易
+            fee.append(0.0)
+            cost.append(cost[i-1])
+            cost3.append(cost3[i-1])
+            costN.append(costN[i-1])
+            V3.append(V3[i-1])
+            VN.append(VN[i-1])
+        #无论是否交易都要算的持仓市值，收益，收益率
+        j += 1
+        if j >= freq:
+            j = 0
+        Total3.append(V3[i]*df_300["close"][i])
+        TotalN.append(VN[i]*df_nas["close"][i])
+        Total.append(Total3[i] + TotalN[i])
+        Income3.append(Total3[i] - cost3[i])
+        IncomeN.append(TotalN[i] - costN[i])   
+        Income.append(Income3[i] + IncomeN[i])
+        Rate3.append(Income3[i]/cost3[i])
+        RateN.append(IncomeN[i]/costN[i])
+        Rate.append(Income[i]/cost[i])
+        print(Total3[i], TotalN[i], Total[i])
+        #print(i, Income3[i], IncomeN[i], Income[i], Rate3[i], RateN[i], Rate[i])
+        
+    data = pd.DataFrame(
+    {
+    "成本":cost,
     "手续费":fee,
-    "成本":money,
-    "市值":market,
-    "收益率":rate})
+    "市值":Total,
+    "收益":Income,
+    "收益率":Rate
+    }
+    )
     return data
-        
-        
-#合并两个数据，算出总的持仓收益率等数据
-def MergeData(data1, data2, histData1, histData2):
-    #合并日期，持仓金额，手续费,市值，并计算持仓收益率
-    money = []   #成本
-    fee = []          #手续费总额
-    market = []   #总的股票市值
-    rate = []         #总的收益率
-    time = []        #日期
-    income = []   #收益
-    i = 0
-    for date in histData1.date:
-        date = TransfDate2(date)
-        time.append(date)
-        money.append(data1.成本[i] + data2.成本[i])
-        fee.append(data1.手续费[i] + data2.手续费[i])
-        market.append(data1.市值[i] + data2.市值[i])
-        #计算收益率
-        income.append(market[i]/money[i])
-        rate.append(market[i]/money[i] - 1.0)
-        i = i + 1
-    data = pd.DataFrame({
-    "日期":time,
-    "成本":money,
-    "手续费":fee,
-    "市值":market,
-    "收益":income,
-    "收益率":rate
-    })
+    
+    
+#按不同交易频率进行交易
+def Run(cost, time, df_300, df_nas):
+    data = []
+    for freq in range(1, 31):
+        data.append(work(cost, time, freq, df_300, df_nas))
     return data
-        
+
+
+if __name__=="__main__":
+    #实盘数据分析
+#    df_etf = pd.read_csv("total_etf.csv")
+#    df_300 = pd.read_csv("300etf.csv")
+#    df_nas = pd.read_csv("nasetf.csv")
+#    df_data = pd.DataFrame(
+#    {
+#    "数据":df_etf["收益率"].values
+#    }
+#    )
+#    df_base = pd.DataFrame(
+#    {
+#    "数据":df_300["close"].values
+#    }
+#    )
+#    #result = index.index(df_data, df_base, 0.029)
+#    #print(result)
+#    #进行模拟
+#    #先获取成本，交易周期等信息
+#    cost = df_etf["成本"].values[-1]
+#    print(cost)
+#    time = len(df_etf)
+#    #进行交易模拟
+#    data = work(cost, time, 10, df_300, df_nas)
+#    print(data.head())
+#    testdata = pd.DataFrame(
+#    {
+#    "数据":data["收益率"].values
+#    }
+#    )
+#    result = index.index(testdata, df_base, 0.03)
+#    print(result)
+#    #测试成功，现在模拟不同交易频率对结果的影响
+#    testresult = Run(cost, time, df_300, df_nas)
+#    testindex = [] #保存测试结果的回测指标
+#    for res in testresult:
+#        print(res.head())
+#        test = pd.DataFrame(
+#        {
+#        "数据":res["收益率"].values
+#        }
+#        )
+#        testindex.append(index.index(test, df_base, 0.03))
+#    AR = []
+#    MD = []
+#    alpha = []
+#    shaper = []
+#    for test in testindex:
+#        print(test.head())
+#        AR.append(test["年化收益率"])
+#        MD.append(test["最大回撤"])
+#        alpha.append(test["α系数"])
+#        shaper.append(test["夏普系数"])
+#    #数据可视化
+#    fig = plt.figure()
+#    plt.plot(AR)
+#    fig.savefig("montecarlo_ar.png")
+#    fig = plt.figure()
+#    plt.plot(MD)
+#    fig.savefig("montecarlo_md.png")
+#    fig = plt.figure()
+#    plt.plot(alpha)
+#    fig.savefig("montecarlo_α.png")
+#    fig = plt.figure()
+#    plt.plot(shaper)
+#    fig.savefig("montecarlo_shaper.png")
+    #获取从2013年5月15日至2019年02月01日的数据
+    #beginTime = 20130515
+#    endTime = 20190201
+#    etf300 = etfdata.GetHistoryData("510300", beginTime, endTime)
+#    etfnas = etfdata.GetHistoryData("513100", beginTime, endTime)
+#    print(len(etf300), len(etfnas))
+#    #保存文件
+#    etf300.to_csv("df_300_hist.csv")
+#    etfnas.to_csv("df_nas_hist.csv")
+    #读取数据
+    df_300 = pd.read_csv("df_300_hist.csv")
+    df_nas = pd.read_csv("df_nas_hist.csv")
+    #只保留收盘价
+    length1 = len(df_300)
+    length2 = len(df_nas)
+    df_300 = df_300.loc[0:length1, ["date", "close"]]
+    df_nas = df_nas.loc[0:length2, ["date", "close"]]
+    print(len(df_300), len(df_nas))
+    #试试用实盘的策略的模拟结果
+    freq = 10
+    times = len(df_300)
+    data = work(1000, times, freq, df_300, df_nas)
+    print(data)
+    #计算指标
+    #先处理基准指标，剔除没交易的日期的数据
+    #df_300 = df_300[df_300["date"].isin(data.日期.values)]
+    df_base = pd.DataFrame(
+    {
+    "数据":df_300["close"].values
+    }
+    )
+    
+    testdata = pd.DataFrame(
+    {
+    "数据":data["收益率"].values
+    }
+    )
+    print(df_base.head(), len(df_base))
+    print(testdata.head())
+    result = index.index(testdata, df_base, 0.03)
+    print(result)
+    #画图看看吧。
+    fig = plt.figure()
+    plt.plot(testdata[("数据")])
+    fig.savefig("模拟结果.png")
     
     
-#主程序
-if __name__ == "__main__":
-    # 导入数据
-    etfdata = ImportData("etfdata.csv")
-    #print(etfdata)
-    # 探索数据
-    #ExploreData(etfdata)
-    # 分离数据
-    (df_300, df_nas) = DivData(etfdata)
-    #print(df_300)
-    #print(df_nas)
-    #描述数据
-    #print(df_300.describe())
-    #print(df_nas.describe())
-    #print(df_300["成交日期"])
-    plt.plot(df_300["成交均价"])
-    plt.plot(df_nas["成交均价"])
-    plt.savefig("成交均价.png")
-    
-    #找出最早开始定投的时间
-    #beginTime = df_300.成交日期.min()
-    #endTime = df_300.成交日期.max()
-    #抓取历史价格数据
-    #df_300_hist = GetHistoryData("510300", beginTime, endTime)
-    #df_nas_hist = GetHistoryData("513100", beginTime, endTime)
-    #保存到csv文件
-    #df_300_hist.to_csv("300etf.csv")
-    #df_nas_hist.to_csv("nasetf.csv")
-    #上面运行一次就行了，以后从csv读取
-    df_300_hist = pd.read_csv("300etf.csv")
-    df_nas_hist = pd.read_csv("nasetf.csv")
-    #print(df_300_hist)
-    df_300_hist = df_300_hist.loc[0:len(df_300_hist), ["date", "close"]]
-    df_nas_hist = df_nas_hist.loc[0:len(df_nas_hist), ["date", "close"]]
-    #print(df_300_hist)
-    #TestData(df_300)
-    #TestData(df_nas)
-    data_300 = Calculator(df_300, df_300_hist)
-    data_nas = Calculator(df_nas, df_nas_hist)
-    #print(df_300.tail())
-    #print(df_nas.tail())
-    #将收益率数据合并，算出总的持仓数据
-    data_total = MergeData(data_300, data_nas, df_300_hist, df_nas_hist)
-    data_total.to_csv("total_etf.csv")
-    plt.figure()
-    plt.plot(data_300.收益率, label = "300etf")
-    plt.plot(data_nas.收益率, label = "nasetf")
-    plt.plot(data_total.收益率, label = "etf")
-    plt.legend(loc = "upper right")
-    plt.savefig("收益率.png")
-    #print(data_total.tail())
     
     
     

@@ -11,18 +11,18 @@ import etfdata
     
 '''执行一次交易模拟
 输入的参数
-cost 总交易成本
+cost 每次投入金额
 time 交易周期的天数
 freq 交易频率，几天交易一次
 df_300, df_nas,分别为两个定投的etf的实盘成交数据
 返回值为一个DataFrame，包含每个交易日的成本，收益，收益率等数据
 '''
-def work(cost, time, freq, df_300, df_nad):
+def work(cost, time, freq, df_300, df_nas):
     #计算交易次数
     tradetimes = int(time/freq)
     #print(tradetimes)
     #计算每次交易的金额
-    money = cost/tradetimes
+    money = cost
     #print(money)
     #手续费比率
     fee_rate = 0.0003
@@ -110,6 +110,7 @@ def work(cost, time, freq, df_300, df_nad):
         Rate3.append(Income3[i]/cost3[i])
         RateN.append(IncomeN[i]/costN[i])
         Rate.append(Income[i]/cost[i])
+        print(i, Income3[i], IncomeN[i], Income[i], Rate3[i], RateN[i], Rate[i])
         
     data = pd.DataFrame(
     {
@@ -215,13 +216,35 @@ if __name__=="__main__":
     df_300 = df_300.loc[0:length1, ["date", "close"]]
     df_nas = df_nas.loc[0:length2, ["date", "close"]]
     print(len(df_300), len(df_nas))
-    #for i in range(len(df_nas)):
-#        date1 = etfdata.TransfDate2(df_300["date"][i])
-#        date2 = etfdata.TransfDate2(df_nas["date"][i])
-#        if date1 != date2:
-#            print(i)
-#        else:
-#            print(i, date1, date2)
+    #试试用实盘的策略的模拟结果
+    freq = 10
+    times = len(df_300)
+    data = work(1000, times, freq, df_300, df_nas)
+    print(data)
+    #计算指标
+    #先处理基准指标，剔除没交易的日期的数据
+    #df_300 = df_300[df_300["date"].isin(data.日期.values)]
+    df_base = pd.DataFrame(
+    {
+    "数据":df_300["close"].values
+    }
+    )
+    
+    testdata = pd.DataFrame(
+    {
+    "数据":data["收益率"].values
+    }
+    )
+    print(df_base.head(), len(df_base))
+    print(testdata.head())
+    result = index.index(testdata, df_base, 0.03)
+    print(result)
+    #画图看看吧。
+    fig = plt.figure()
+    plt.plot(testdata[("数据")])
+    fig.savefig("模拟结果.png")
+    
+    
     
     
     
