@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import etfdata
     
     
+#此函数作废，重写
 '''执行一次交易模拟
 输入的参数
 cost_pertime 每次投入金额
@@ -17,7 +18,7 @@ freq 交易频率，几天交易一次
 df_300, df_nas,分别为两个定投的etf的实盘成交数据
 返回值为一个DataFrame，包含每个交易日的成本，收益，收益率等数据
 '''
-def work(cost_pertime, time, freq, df_300, df_nas):
+def work2(cost_pertime, time, freq, df_300, df_nas):
     #计算交易次数
     tradetimes = int(time/freq)
     #print(tradetimes)
@@ -125,6 +126,143 @@ def work(cost_pertime, time, freq, df_300, df_nas):
     return data
     
     
+'''执行一次交易模拟
+输入的参数
+cost_pertime 每次投入金额
+time 交易周期的天数
+freq 交易频率，几天交易一次
+df_300, df_nas,分别为两个定投的etf的实盘成交数据
+返回值为一个DataFrame，包含每个交易日的成本，收益，收益率等数据
+'''
+def work(cost_pertime, time, freq, df_300, df_nas):
+    #计算交易次数
+    tradetimes = int(time/freq)
+    #手续费费率
+    fee_rate = 0.0003
+    #买每个etf的金额为总投资额的一半
+    money_per_etf = cost_pertime/2.0
+    #每次实际投资金额
+    money_300 = money_per_etf
+    money_nas = money_per_etf
+    #每次剩下的钱，累加到下一次
+    money_300_rem = 0
+    money_nas_rem = 0
+    
+    #定义变量
+    #成本
+    cost300 = []
+    costNas = []
+    cost = []
+    #手续费
+    fee300 = []
+    feeNas = []
+    fee = []
+    #持仓量
+    stack300 = []
+    stackNas = []
+    stack = []
+    #市值
+    value300 = []
+    valueNas = []
+    value = []
+    #持仓收益
+    income = []
+    #持仓收益率
+    rate = []
+    
+    #执行模拟
+    j = 0
+    for i in range(times):
+        if j == 0:   #进行交易
+            #先计算能投入的金额
+            money300 = money_300 + money_300_rem
+            moneyNas = money_nas + money_nas_rem
+            #计算买入数量
+            num300 = BuyNumber(money300, df_300["close"][i])
+            numNas = BuyNumber(moneyNas, df_nas["close"][i])
+            if i == 0:
+                stack300.append(num300)
+                stackNas.append(numNas)
+            else:
+                stack300.append(stack300[i-1] + num300)
+                stackNas.append(stackNas[i-1] + numNas)
+            #print(i, num300, numNas)
+            #计算买入成本
+            cost_300 = BuyCost(num300, df_300["close"][i])
+            fee_300 = BuyFee(cost_300, fee_rate)
+            cost_nas = BuyCost(numNas, df_nas["close"][i])
+            fee_nas = BuyFee(cost_nas, fee_rate)
+            if i == 0:
+                fee.append(fee_300 + fee_nas)
+                cost300.append(cost_300 + fee_300)
+                costNas.append(cost_nas + fee_nas)
+            else:
+                fee.append(fee[i-1] + fee_300 + fee_nas)
+                cost300.append(cost300[i-1] + cost_300 + fee_300)
+                costNas.append(costNas[i-1] + cost_nas + fee_nas)
+            cost.append(cost300[i] + costNas[i])
+            money_300_rem = money300 - cost_300 - fee_300
+            money_nas_rem = moneyNas - cost_nas - fee_nas
+        else:        #不进行交易
+            stack300.append(stack300[i-1])
+            stackNas.append(stackNas[i-1])
+            cost300.append(cost300[i-1])
+            costNas.append(costNas[i-1])
+            cost.append(cost[i-1])
+            fee.append(fee[i-1])
+        j += 1
+        if j == freq:
+            j = 0
+        #不管是否交易都要计算的数据
+        #计算市值
+        value300.append(stack300[i] * df_300["close"][i])
+        valueNas.append(stackNas[i] * df_nas["close"][i])
+        value.append(value300[i] + valueNas[i])
+        #计算收益
+        income.append(value[i] - cost[i])
+        #计算收益率
+        rate.append(income[i]/cost[i])
+        
+    
+    #形成返回数据
+    data = FormResult(cost, fee, value, income, rate)
+    return data
+    
+    
+#形成返回数据
+def FormResult(cost, fee, value, income, rate):
+    data = pd.DataFrame(
+    {
+    "成本":cost,
+    "手续费":fee,
+    "市值":value,
+    "收益":income,
+    "收益率":rate
+    }
+    )
+    return data
+    
+
+#根据可用的资金和收盘价，计算可以买的股票数量
+def BuyNumber(money, price):
+    num = int(money/price/100)*100
+    return num
+    
+    
+#根据成交量和成交价计算成本，不含手续费
+def BuyCost(number, price):
+    cost = number*price
+    return cost
+    
+    
+#根据交易金额,费率计算手续费
+def BuyFee(money, rate):
+    fee = money * rate
+    if fee < 0.1:
+        fee = 0.1
+    return fee
+    
+    
 #按不同交易频率进行交易
 def Run(cost, time, df_300, df_nas):
     data = []
@@ -216,12 +354,10 @@ if __name__=="__main__":
     length2 = len(df_nas)
     df_300 = df_300.loc[0:length1, ["date", "close"]]
     df_nas = df_nas.loc[0:length2, ["date", "close"]]
-    print(len(df_300), len(df_nas))
     #试试用实盘的策略的模拟结果
     freq = 10
     times = len(df_300)
     data = work(1000, times, freq, df_300, df_nas)
-    print(data)
     #计算指标
     #先处理基准指标，剔除没交易的日期的数据
     #df_300 = df_300[df_300["date"].isin(data.日期.values)]
@@ -236,8 +372,6 @@ if __name__=="__main__":
     "数据":data["收益率"].values
     }
     )
-    print(df_base.head(), len(df_base))
-    print(testdata.head())
     result = index.index(testdata, df_base, 0.03)
     print(result)
     #画图看看吧。
