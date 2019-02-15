@@ -132,12 +132,13 @@ cost_pertime 每次投入金额
 time 交易周期的天数
 freq 交易频率，几天交易一次
 df_300, df_nas,分别为两个定投的etf的实盘成交数据
-返回值为一个DataFrame，包含每个交易日的成本，收益，收益率等数据
 bCut,是否止盈止损
 up,止盈点
 down,止损点
+sell_rate, 止盈止损时每次卖出的股票比例
+返回值为一个DataFrame，包含每个交易日的成本，收益，收益率等数据
 '''
-def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, down):
+def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, down, sell_rate):
     #计算交易次数
     tradetimes = int(time/freq)
     #手续费费率
@@ -194,13 +195,13 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, down):
             #如果进行过止盈止损，把卖出得到的钱加上
             money300 = money_300 + money_300_rem
             moneyNas = money_nas + money_nas_rem
-            if bUp == True or bDown == True:
+            if bUp == True and rate[i-1] - minRate > up:
                 money300 += money_cut_300
                 moneyNas += money_cut_nas
                 money_cut_300 = 0.0
                 money_cut_nas = 0.0
                 bUp = False
-                bDown = False
+                
             #计算买入数量
             num300 = TradeNumber(money300, df_300["close"][i])
             numNas = TradeNumber(moneyNas, df_nas["close"][i])
@@ -248,48 +249,42 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, down):
         rate.append(income[i]/cost[i])
         
         #进行止盈止损操作
+        if bUp == False: 
+            if maxRate <= rate[i]:
+                maxRate = rate[i]
+            minRate = maxRate
+        if bUp == True: #已经止盈了再记录最小值，用来判断止盈终点
+            if minRate >= rate[i]:
+                minRate = rate[i]
         if bCut == True:
-            print(i, rate[i],  stack300[i], stackNas[i], minRate, maxRate, bCutUp, bCutDown)
+            #print(i, rate[i],  stack300[i], stackNas[i], minRate, maxRate, bCutUp, bCutDown)
             #保存最大最小收益率
-            if bUp == False and bDown == False:
-                minRate = min(rate)
-                maxRate = max(rate)
+            #if bUp == False:
+            #    maxRate = max(rate)
             #判断是否触发止盈止损操作
-            if rate[i] > up:
+            if maxRate - rate[i] > up:
                 bCutUp = True
-                bCutDown = False
-            elif rate[i] < down:
-                bCutUp = False
-                bCutDown = True
             else:
                 bCutUp = False
-                bCutDown = False
             
-            #先判断进行止盈止损操作
-            if i != 0 and (bCutUp == True or bCutDown == True):
-                #进行止盈止损，每次卖存量的一半
+            #先判断进行止盈操作
+            if i != 0 and bCutUp == True:
+                #进行止盈
                 #300etf
-                sellNumber300 = int(stack300[i]/200)*100
-                if sellNumber300 < 100:
-                    sellNumber300 = 0
-                stack300[i] -= sellNumber300
-                sellmoney300 = TradeCost(sellNumber300, df_300["close"][i])
-                sellfee300 = TradeFee(sellmoney300, fee_rate)
-                money_cut_300 = sellmoney300 + sellfee300
-                value300[i] -=  money_cut_300
-                cost300[i] -= money_cut_300
+                Cut300 = Cut(stack300[i], df_300["close"][i], fee_rate, sell_rate)
+                stack300[i] -= Cut300[0]
+                value300[i] -= Cut300[1] + Cut300[2]
+                cost300[i] -= Cut300[1] + Cut300[2]
+                money_cut_300 += Cut300[1] + Cut300[2]
                 #纳指etf
-                sellNumberNas = int(stackNas[i]/200)*100
-                if sellNumberNas < 100:
-                    sellNumberNas = 0
-                stackNas[i] -= sellNumberNas
-                sellmoneyNas = TradeCost(sellNumberNas, df_nas["close"][i])
-                sellfeeNas = TradeFee(sellmoneyNas, fee_rate)
-                money_cut_Nas = sellmoneyNas + sellfeeNas
-                valueNas[i] -=  money_cut_Nas
-                costNas[i] -= money_cut_Nas
+                CutNas = Cut(stackNas[i], df_nas["close"][i], fee_rate, sell_rate)
+                stackNas[i] -= CutNas[0]
+                valueNas[i] -= CutNas[1] + CutNas[2]
+                costNas[i] -= CutNas[1] + CutNas[2]
+                money_cut_nas += CutNas[1] + CutNas[2]
+                
                 #计算合并数据
-                fee[i] += sellfee300 + sellfeeNas
+                fee[i] += Cut300[2] + CutNas[2]
                 value[i] = value300[i] + valueNas[i]
                 cost[i] = cost300[i] + costNas[i]
                 income[i] = value[i] - cost[i]
@@ -297,16 +292,7 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, down):
                 if bCutUp == True:
                     #设置止盈操作标志
                     bUp = True
-                    minRate += up #将基线提高，看是否还要止盈的。
-                    bCutUp = False
-                    #print(i, "止盈")
-                elif bCutDown == True:
-                    #设置止损标志
-                    bDown = True
-                    maxRate -= down #将基线降低，看是否需要止损的
-                    bCutDown = False
-                    #print(i, "止损")
-                #print(i, bUp, bDown, rate[i]-minRate, maxRate-rate[i], rate[i], money_cut_300, money_cut_nas)
+                    maxRate -= up
                     
     
     #形成返回数据
@@ -346,6 +332,27 @@ def TradeFee(money, rate):
     if fee < 0.1:
         fee = 0.1
     return fee
+    
+    
+#止盈止损操作
+"""
+参数
+stack 持仓股票数量
+price 股票现价
+fee_rate 手续费费率
+sell_rate 止盈止损时卖出的比例
+返回值
+sellNumber 卖出股票数量
+sellMoney 卖出得到的钱
+sellFee 卖出手续费
+"""
+def Cut(stack, price, fee_rate, sell_rate):
+    sellNumber = int(stack/100*sell_rate)*100
+    if sellNumber < 100:
+        sellNumber = 0
+    sellMoney = TradeCost(sellNumber, price)
+    sellFee = TradeFee(sellMoney, fee_rate)
+    return (sellNumber, sellMoney, sellFee)
     
     
 #按不同交易频率进行交易
@@ -442,7 +449,7 @@ if __name__=="__main__":
     #试试用实盘的策略的模拟结果
     freq = 10
     times = len(df_300)
-    data = work(1000, times, freq, df_300, df_nas, True, 0.15, -0.1)
+    data = work(1000, times, freq, df_300, df_nas, True, 0.15, -0.1, 0.5)
     #计算指标
     #先处理基准指标，剔除没交易的日期的数据
     #df_300 = df_300[df_300["date"].isin(data.日期.values)]
