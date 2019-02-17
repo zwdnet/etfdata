@@ -192,6 +192,8 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
     #是否进行了止盈止损操作
     bUp300 = False
     bUpNas = False
+    #停止止盈的条件，即下跌后反弹超过止盈点多少倍停止止盈
+    stop = 1.0
     
     for i in range(times):
         #进行交易，如果在止盈止损期间，暂停交易
@@ -204,7 +206,7 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
             #如果进行过止盈止损，把卖出得到的钱加上
                 money300 = money_300 + money_300_rem
             
-                if bUp300 == True and rate300[i-1] - minRate300 > 1.5*up:
+                if bUp300 == True and rate300[i-1] - minRate300 > stop*up:
                     money300 += money_cut_300
                     money_cut_300 = 0.0
                     bUp300 = False
@@ -215,7 +217,6 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
                     stack300.append(num300)
                 else:
                     stack300.append(stack300[i-1] + num300)
-                print(i, stack300[i], num300)
                 #计算买入成本
                 cost_300 = TradeCost(num300, df_300["close"][i])
                 fee_300 = TradeFee(cost_300, fee_rate)
@@ -226,10 +227,13 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
                 cost[i] += cost300[i]
                 fee[i] += fee_300
                 money_300_rem = money300 - cost_300 - fee_300
+            else: #正在止盈过程中
+                stack300.append(stack300[i-1])
+                cost300.append(cost300[i-1])
             #纳指etf
             if bCutUpNas == False:
                 moneyNas = money_nas + money_nas_rem
-                if bUpNas == True and rateNas[i-1] - minRateNas > 1.5*up:
+                if bUpNas == True and rateNas[i-1] - minRateNas > stop*up:
                     moneyNas += money_cut_nas
                     money_cut_nas = 0.0
                     bUpNas = False
@@ -247,6 +251,9 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
                 cost[i] += costNas[i]
                 fee[i] += fee_nas
                 money_nas_rem = moneyNas - cost_nas - fee_nas
+            else: #正在止盈过程中
+                stackNas.append(stackNas[i-1])
+                costNas.append(costNas[i-1])
                 
         
         else:        #不进行交易
@@ -261,7 +268,6 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
             j = 0
         #不管是否交易都要计算的数据
         #计算市值
-        #print(i, len(stack300), len(stackNas))
         value300.append(stack300[i] * df_300["close"][i])
         valueNas.append(stackNas[i] * df_nas["close"][i])
         value.append(value300[i] + valueNas[i])
@@ -274,7 +280,7 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
         rateNas.append(incomeNas[i]/costNas[i])
         rate.append(income[i]/cost[i])
         
-        #print(i, len(cost300), len(costNas), len(cost))
+        #print(i, cost300[i], value300[i], rate300[i], costNas[i], valueNas[i], rateNas[i])
         
         #进行止盈止损操作
         if bUp300 == False: 
@@ -311,10 +317,12 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
                     stack300[i] -= Cut300[0]
                     value300[i] -= Cut300[1] + Cut300[2]
                     cost300[i] -= Cut300[1] + Cut300[2]
+                    rate300[i] = (value300[i] - cost300[i])/cost300[i]
                     money_cut_300 += Cut300[1] + Cut300[2]
                     fee[i] += Cut300[2]
                     bUp300 = True
                     maxRate300 -= up
+                    #print(i, "300")
                         
                 if bCutUpNas == True:
                     #纳指etf
@@ -322,18 +330,32 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
                     stackNas[i] -= CutNas[0]
                     valueNas[i] -= CutNas[1] + CutNas[2]
                     costNas[i] -= CutNas[1] + CutNas[2]
+                    rateNas[i] = (valueNas[i] - costNas[i])/costNas[i]
                     money_cut_nas += CutNas[1] + CutNas[2]
                     bUpNas = True
                     maxRateNas -= up
                     fee[i] += CutNas[2]
+                    #print(i, "纳指")
 
                 #计算合并数据
-                #fee[i] += Cut300Res[2] + CutNasRes[2]
                 value[i] = value300[i] + valueNas[i]
                 cost[i] = cost300[i] + costNas[i]
                 income[i] = value[i] - cost[i]
                 rate[i] = income[i]/cost[i]
                     
+    #单独画两个个股的收益率看看。
+    fig = plt.figure()
+    plt.plot(rate300, label="300_test")
+    plt.plot(df_300["close"]/df_300["close"][1]-1, label = "300etf")
+    plt.legend(loc = "best")
+    fig.savefig("300etf_test.png")
+    
+    fig = plt.figure()
+    plt.plot(rateNas, label="Nas_test")
+    plt.plot(df_nas["close"]/df_nas["close"][1]-1, label = "Nasetf")
+    plt.legend(loc = "best")
+    fig.savefig("Nasetf_test.png")
+    
     
     #形成返回数据
     data = FormResult(cost, fee, value, income, rate)
@@ -508,6 +530,9 @@ if __name__=="__main__":
     print(result)
     #画图看看吧。
     fig = plt.figure()
-    plt.plot(testdata[("数据")])
+    plt.plot(testdata[("数据")], label = "Total")
+    plt.plot(df_300["close"]/df_300["close"][1]-1, label = "300etf")
+    plt.plot(df_nas["close"]/df_nas["close"][1]-1, label = "Nasetf")
+    plt.legend(loc = "best")
     fig.savefig("模拟结果.png")
     
