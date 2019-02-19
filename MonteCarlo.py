@@ -205,7 +205,6 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
             #先计算能投入的金额
             #如果进行过止盈止损，把卖出得到的钱加上
                 money300 = money_300 + money_300_rem
-            
                 if bUp300 == True and rate300[i-1] - minRate300 > stop*up:
                     money300 += money_cut_300
                     money_cut_300 = 0.0
@@ -227,6 +226,7 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
                 cost[i] += cost300[i]
                 fee[i] += fee_300
                 money_300_rem = money300 - cost_300 - fee_300
+                #print(i, money_300_rem)
             else: #正在止盈过程中
                 stack300.append(stack300[i-1])
                 cost300.append(cost300[i-1])
@@ -263,6 +263,7 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
             costNas.append(costNas[i-1])
             cost[i] = cost[i-1]
             fee[i] = fee[i-1]
+            #print(i, stack300[i], cost300[i])
         j += 1
         if j == freq:
             j = 0
@@ -280,7 +281,7 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
         rateNas.append(incomeNas[i]/costNas[i])
         rate.append(income[i]/cost[i])
         
-        #print(i, cost300[i], value300[i], rate300[i], costNas[i], valueNas[i], rateNas[i])
+        #print(i, cost300[i], value300[i], rate300[i])
         
         #进行止盈止损操作
         if bUp300 == False: 
@@ -316,22 +317,24 @@ def work(cost_pertime, time, freq, df_300, df_nas, bCut, up, sell_rate):
                     Cut300 = Cut(stack300[i], df_300["close"][i], fee_rate, sell_rate)
                     stack300[i] -= Cut300[0]
                     value300[i] -= Cut300[1] + Cut300[2]
-                    cost300[i] -= Cut300[1] + Cut300[2]
-                    rate300[i] = (value300[i] - cost300[i])/cost300[i]
-                    money_cut_300 += Cut300[1] + Cut300[2]
+                    #print(i, cost300[i], money_cut_300, Cut300)
+                    cost300[i] += Cut300[2]
+                    money_cut_300 += Cut300[1] - Cut300[2]
+                    rate300[i] = (value300[i] - cost300[i] + money_cut_300)/cost300[i]
                     fee[i] += Cut300[2]
                     bUp300 = True
                     maxRate300 -= up
-                    #print(i, "300")
+                    #print(i, cost300[i], money_cut_300, Cut300)
+                    print(i, value300[i], cost300[i], rate300[i])
                         
                 if bCutUpNas == True:
                     #纳指etf
                     CutNas = Cut(stackNas[i], df_nas["close"][i], fee_rate, sell_rate)
                     stackNas[i] -= CutNas[0]
                     valueNas[i] -= CutNas[1] + CutNas[2]
-                    costNas[i] -= CutNas[1] + CutNas[2]
-                    rateNas[i] = (valueNas[i] - costNas[i])/costNas[i]
-                    money_cut_nas += CutNas[1] + CutNas[2]
+                    costNas[i] += CutNas[2]
+                    money_cut_nas += CutNas[1] - CutNas[2]
+                    rateNas[i] = (valueNas[i] - costNas[i] - money_cut_nas)/costNas[i]
                     bUpNas = True
                     maxRateNas -= up
                     fee[i] += CutNas[2]
@@ -413,6 +416,7 @@ def Cut(stack, price, fee_rate, sell_rate):
     if sellNumber < 100:
         sellNumber = 0
     sellMoney = TradeCost(sellNumber, price)
+    #print(stack, sellNumber, price, sellMoney)
     sellFee = TradeFee(sellMoney, fee_rate)
     return (sellNumber, sellMoney, sellFee)
     
@@ -511,7 +515,7 @@ if __name__=="__main__":
     #试试用实盘的策略的模拟结果
     freq = 10
     times = len(df_300)
-    data = work(1000, times, freq, df_300, df_nas, True, 0.15, 0.5)
+    data = work(1000, times, freq, df_300, df_nas, False, 0.15, 0.5)
     #计算指标
     #先处理基准指标，剔除没交易的日期的数据
     #df_300 = df_300[df_300["date"].isin(data.日期.values)]
