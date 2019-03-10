@@ -30,6 +30,8 @@ class simulate(object):
         # 股票交易数据
         # 每次交易剩下的钱
         self.money_rem = [0.0, 0.0]
+        # 止盈卖出后得到的钱
+        self.money_cut = [0.0, 0.0]
         # 成本
         self.cost = [[0] * self.totalTimes for row in range(2)]
         # 持仓股票数量
@@ -48,19 +50,57 @@ class simulate(object):
         self.totalvalue = [0] * self.totalTimes
         # 总收益率
         self.totalrate = [0] * self.totalTimes
+        # 最低，最高收益率，用来计算止盈止损点
+        self.minPrice = [0.0] * 2
+        self.maxPrice = [0.0] * 2
+        # 是否正在止盈
+        self.bStop = [False] * 2
         
         
     # 计算持仓股票市值
     def getValue(self):
         pass
         
-    # 判断是否进行止盈操作
-    def isStopProfit(self):
-        pass
+    # 判断是否进行止盈操作，根据days前的交易情况，code为0或1
+    def isStopProfit(self, code, days):
+        price = self.data[code]["close"][days]
+        # 没有正在进行止盈
+        if self.bStop[code] == False:
+            if self.minPrice[code] > price:
+                self.minPrice[code] = price
+            if self.maxPrice[code] < price:
+                self.maxPrice[code] = price
+            # 判断止盈条件
+            if price/self.maxPrice[code] <= 1.0 - self.stopPoint:
+                self.bStop[code] = True
+                # 将最高/低价调整到现价
+                self.maxPrice[code] = price
+                self.minPrice[code] = price
+                return True
+        # 如果已经进行了止盈
+        if self.bStop[code] == True:
+            if self.minPrice[code] > price:
+                self.minPrice[code] = price
+            # 判断止盈条件
+            if price/self.maxPrice[code] <= 1.0 - self.stopPoint:
+                # 将最高/低价调整到现价
+                self.maxPrice[code] = price
+                self.minPrice[code] = price
+                return True
+        return False
+                
         
     # 进行止盈操作
-    def doStopProfit(self):
-        pass
+    def doStopProfit(self, code, days):
+        money = self.value[code][days-1]/2.0
+        num = self.getTradeNumber(money, self.data[code]["close"][days])
+        value = num * self.data[code]["close"][days]
+        fee = self.getFee(num, self.data[code]["close"][days])
+        # 更新数据
+        
+        
+        print(code, days, money, num, value, fee)
+        
         
     # 进行交易
     def doTrade(self, days):
@@ -102,7 +142,7 @@ class simulate(object):
             self.value[1][days] = self.stock[1][days] * self.data[1]["close"][days]
             self.fee[1][days] = fee1 + self.fee[1][days - 1]
             self.rate[1][days] = self.value[1][days] / self.cost[1][days] -1.0
-        print(days, self.cost[0][days], self.stock[0][days], self.value[0][days], self.rate[0][days], self.rate[1][days])
+        # print(days, self.cost[0][days], self.stock[0][days], self.value[0][days], self.rate[0][days], self.rate[1][days])
             
         
     # 计算给定数量资金和股价可以买多少股票
@@ -132,17 +172,19 @@ class simulate(object):
         pass
         
     # 更新相关数据
-    def updateData(self, days):
-        self.cost[0][days] = self.cost[0][days - 1]
-        self.stock[0][days] = self.stock[0][days - 1]
-        self.value[0][days] = self.stock[0][days] * self.data[0]["close"][days]
-        self.fee[0][days] = self.fee[0][days - 1]
-        self.rate[0][days] = self.value[0][days] / self.cost[0][days] -1.0
-        self.cost[1][days] = self.cost[1][days - 1]
-        self.stock[1][days] = self.stock[1][days - 1]
-        self.value[1][days] = self.stock[1][days] * self.data[1]["close"][days]
-        self.fee[1][days] = self.fee[1][days - 1]
-        self.rate[1][days] = self.value[1][days] / self.cost[1][days] - 1.0
+    def updateData(self, code, days):
+        # 更新第一支股票数据
+        self.cost[code][days] = self.cost[code][days - 1]
+        self.stock[code][days] = self.stock[code][days - 1]
+        self.value[code][days] = self.stock[code][days] * self.data[code]["close"][days]
+        self.fee[code][days] = self.fee[code][days - 1]
+        self.rate[code][days] = self.value[code][days] / self.cost[code][days] -1.0
+        # 更新第二支股票数据
+        #self.cost[1][days] = self.cost[1][days - 1]
+#        self.stock[1][days] = self.stock[1][days - 1]
+#        self.value[1][days] = self.stock[1][days] * self.data[1]["close"][days]
+#        self.fee[1][days] = self.fee[1][days - 1]
+#        self.rate[1][days] = self.value[1][days] / self.cost[1][days] - 1.0
             
     # 将两个个股的数据综合，计算总收益率
     def combine(self, days):
@@ -150,7 +192,7 @@ class simulate(object):
         self.totalfee[days] = self.fee[0][days] + self.fee[1][days]
         self.totalvalue[days] = self.value[0][days] + self.value[1][days]
         self.totalrate[days] = self.totalvalue[days] / self.totalcost[days] - 1.0
-        print(days, self.totalcost[days], self.totalfee[days], self.totalvalue[days], self.totalrate[days])
+        # print(days, self.totalcost[days], self.totalfee[days], self.totalvalue[days], self.totalrate[days])
     
         
     # 计算回测指标
@@ -160,15 +202,24 @@ class simulate(object):
     # 执行交易循环
     def run(self):
         for days in range(self.totalTimes):
-            if days > 0:
-                if self.isStopProfit():
-                    self.doStopProfit()
+            if days == 0:
+                self.minPrice[0] = self.data[0]["close"][0]
+                self.minPrice[1] = self.data[1]["close"][0]
+                self.maxPrice[0] = self.data[0]["close"][0]
+                self.maxPrice[1] = self.data[1]["close"][0]
+            else:
+                for code in range(2):
+                    if self.isStopProfit(code, days):
+                        self.doStopProfit(code, days)
+                        # print(code, days)
+                
             if self.isReturnBuy():
                 self.doReturnBuy()
             if days % self.freq == 0: #进行交易
                 self.doTrade(days)
             else:
-                self.updateData(days)
+                for code in range(2):
+                    self.updateData(code, days)
             self.combine(days)
             self.tradeTimes += 1
         self.getIndex()
@@ -178,7 +229,7 @@ class simulate(object):
         plt.plot(self.rate[1], label = "nasetf")
         plt.plot(self.totalrate, label = "total")
         plt.legend(loc="best")
-        plt.savefig("simulate_test.png")
+        plt.savefig("simulate_test2.png")
         
             
 if __name__ == "__main__":
@@ -191,7 +242,7 @@ if __name__ == "__main__":
     df_300 = df_300.loc[0:length1, ["date", "close"]]
     df_nas = df_nas.loc[0:length2, ["date", "close"]]
     data = [df_300, df_nas]
-    print(data[0].head())
+    # print(data[0].head())
     test = simulate(1000, len(df_300), 10, 0.0003, data, 0.1, 0.1)
     test.run()
     
