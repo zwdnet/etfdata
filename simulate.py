@@ -55,6 +55,16 @@ class simulate(object):
         self.maxPrice = [0.0] * 2
         # 是否正在止盈
         self.bStop = [False] * 2
+        # 是否正在停止止盈
+        self.bStart = [False] * 2
+        # 止盈的股票数量
+        self.CutStock = [0] * 2
+        # 止盈得到的钱
+        self.CutMoney = [0.0, 0.0]
+        # 止盈的手续费
+        self.CutFee = [0.0, 0.0]
+        # 是否需要进行更新的标志
+        self.bCutUpdate = [False] * 2
         
         
     # 计算持仓股票市值
@@ -97,9 +107,17 @@ class simulate(object):
         value = num * self.data[code]["close"][days]
         fee = self.getFee(num, self.data[code]["close"][days])
         # 更新数据
+        # 只有股票数量大于一手才做
+        if num > 100:
+            self.CutStock[code] = num
+            self.CutMoney[code] = value
+            self.CutFee[code] = fee
+            self.bCutUpdate[code] = True
+            self.money_cut[code] += value - fee
         
-        
-        print(code, days, money, num, value, fee)
+            print("a", code, days, money, num, value, fee)
+        else:
+            self.bStop[code] = False
         
         
     # 进行交易
@@ -164,27 +182,49 @@ class simulate(object):
         return fee
         
     # 判断是否需要重新购买
-    def isReturnBuy(self):
-        pass
+    def isReturnBuy(self, code, days):
+        # 如果进行了止盈，判断是否停止止盈
+        if self.bStop[code] == True or self.bStart[code] == True:
+            price = self.data[code]["close"][days]
+            if price/self.minPrice[code] >= 1.0 + self.startPoint:
+                self.bStart[code] = True
+                # 将最高/低价调整到现价
+                self.maxPrice[code] = price
+                self.minPrice[code] = price
+                # 停止止盈
+                self.bStop[code] = False
+                return True
+        return False
+            
         
     # 用止盈的钱重新购买etf
     def doReturnBuy(self):
         pass
         
     # 更新相关数据
-    def updateData(self, code, days):
-        # 更新第一支股票数据
+    def update(self, code, days):
+        # 更新股票数据
         self.cost[code][days] = self.cost[code][days - 1]
         self.stock[code][days] = self.stock[code][days - 1]
         self.value[code][days] = self.stock[code][days] * self.data[code]["close"][days]
         self.fee[code][days] = self.fee[code][days - 1]
         self.rate[code][days] = self.value[code][days] / self.cost[code][days] -1.0
-        # 更新第二支股票数据
-        #self.cost[1][days] = self.cost[1][days - 1]
-#        self.stock[1][days] = self.stock[1][days - 1]
-#        self.value[1][days] = self.stock[1][days] * self.data[1]["close"][days]
-#        self.fee[1][days] = self.fee[1][days - 1]
-#        self.rate[1][days] = self.value[1][days] / self.cost[1][days] - 1.0
+        
+        
+    # 在止盈操作以后更新数据
+    def cutUpdate(self, code, days):
+        if self.bCutUpdate[code]:
+            self.stock[code][days] -= self.CutStock[code]
+            self.value[code][days] -= self.CutMoney[code]
+            self.fee[code][days] += self.CutFee[code]
+            self.rate[code][days] = (self.value[code][days] + self.CutMoney[code] - self.CutFee[code])/ self.cost[code][days] -1.0
+            print("b", code, days, self.value[code][days], self.CutMoney[code], self.CutFee[code], self.cost[code][days])
+            self.CutStock[code] = 0.0
+            self.CutMoney[code] = 0.0
+            self.CutFee[code] = 0.0
+            self.bCutUpdate[code] = False
+            
+            
             
     # 将两个个股的数据综合，计算总收益率
     def combine(self, days):
@@ -213,15 +253,20 @@ class simulate(object):
                         self.doStopProfit(code, days)
                         # print(code, days)
                 
-            if self.isReturnBuy():
-                self.doReturnBuy()
+            for code in range(2):
+                if self.isReturnBuy(code, days):
+                    self.doReturnBuy()
             if days % self.freq == 0: #进行交易
                 self.doTrade(days)
             else:
                 for code in range(2):
-                    self.updateData(code, days)
+                    self.update(code, days)
+            # 止盈后更新数据
+            for code in range(2):
+                self.cutUpdate(code, days)
             self.combine(days)
             self.tradeTimes += 1
+            # print(days, self.totalcost[days], self.totalvalue[days], self.totalrate[days])
         self.getIndex()
         # 作图测试
         plt.figure()
