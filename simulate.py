@@ -107,19 +107,53 @@ class simulate(object):
         value = num * self.data[code]["close"][days]
         fee = self.getFee(num, self.data[code]["close"][days])
         # 更新数据
-        # 只有股票数量大于一手才做
-        if num > 100:
+        # 只有股票数量大于一手并且交易金额小于预定金额才做
+        if num > 100 and value + fee <= money:
             self.CutStock[code] = num
             self.CutMoney[code] = value
             self.CutFee[code] = fee
             self.bCutUpdate[code] = True
             self.money_cut[code] += value - fee
         
-            print("a", code, days, money, num, value, fee)
+            # print("a", code, days, money, num, value, fee)
         else:
             self.bStop[code] = False
         
-        
+
+    # 判断是否需要重新购买
+    def isReturnBuy(self, code, days):
+        # 如果进行了止盈，判断是否停止止盈
+        if self.bStop[code] == True or self.bStart[code] == True:
+            price = self.data[code]["close"][days]
+            if price/self.minPrice[code] >= 1.0 + self.startPoint:
+                self.bStart[code] = True
+                # 将最高/低价调整到现价
+                self.maxPrice[code] = price
+                self.minPrice[code] = price
+                # 停止止盈
+                self.bStop[code] = False
+                return True
+        return False
+
+
+    # 用止盈的钱重新购买etf
+    def doReturnBuy(self, code, days):
+        # 用止盈得到的剩余的钱的一半以现价再投资。
+        money = self.money_cut[code]/2.0
+        num = self.getTradeNumber(money, self.data[code]["close"][days])
+        value = num * self.data[code]["close"][days]
+        fee = self.getFee(num, self.data[code]["close"][days])
+        # print("止盈", code, days, money, num, value, fee)
+        # 如果可以交易的股票数量低于一手，或者股价+手续费大于预定的金额，则停止交易。
+        if num <= 100 or value + fee > money:
+            self.bStart[code] = False
+        else: # 进行交易并更新数据。
+            self.stock[code][days] += num
+            self.value[code][days] += value
+            self.fee[code][days] += fee
+            self.money_cut[code] -= value+fee
+            print("停止止盈的地方", code, days, self.money_cut[code])
+
     # 进行交易
     def doTrade(self, days):
         # 计算资金能买多少股票
@@ -180,26 +214,7 @@ class simulate(object):
         if fee < 0.1:
             fee = 0.1
         return fee
-        
-    # 判断是否需要重新购买
-    def isReturnBuy(self, code, days):
-        # 如果进行了止盈，判断是否停止止盈
-        if self.bStop[code] == True or self.bStart[code] == True:
-            price = self.data[code]["close"][days]
-            if price/self.minPrice[code] >= 1.0 + self.startPoint:
-                self.bStart[code] = True
-                # 将最高/低价调整到现价
-                self.maxPrice[code] = price
-                self.minPrice[code] = price
-                # 停止止盈
-                self.bStop[code] = False
-                return True
-        return False
-            
-        
-    # 用止盈的钱重新购买etf
-    def doReturnBuy(self):
-        pass
+
         
     # 更新相关数据
     def update(self, code, days):
@@ -218,7 +233,7 @@ class simulate(object):
             self.value[code][days] -= self.CutMoney[code]
             self.fee[code][days] += self.CutFee[code]
             self.rate[code][days] = (self.value[code][days] + self.CutMoney[code] - self.CutFee[code])/ self.cost[code][days] -1.0
-            print("b", code, days, self.value[code][days], self.CutMoney[code], self.CutFee[code], self.cost[code][days])
+            # print("b", code, days, self.value[code][days], self.CutMoney[code], self.CutFee[code], self.cost[code][days])
             self.CutStock[code] = 0.0
             self.CutMoney[code] = 0.0
             self.CutFee[code] = 0.0
@@ -233,6 +248,7 @@ class simulate(object):
         self.totalvalue[days] = self.value[0][days] + self.value[1][days]
         self.totalrate[days] = self.totalvalue[days] / self.totalcost[days] - 1.0
         # print(days, self.totalcost[days], self.totalfee[days], self.totalvalue[days], self.totalrate[days])
+        print(days, self.money_cut[0], self.money_cut[1])
     
         
     # 计算回测指标
@@ -251,11 +267,12 @@ class simulate(object):
                 for code in range(2):
                     if self.isStopProfit(code, days):
                         self.doStopProfit(code, days)
-                        # print(code, days)
+                        print(code, days, "止盈")
                 
             for code in range(2):
                 if self.isReturnBuy(code, days):
-                    self.doReturnBuy()
+                    self.doReturnBuy(code, days)
+                    print(code, days, "停止止盈")
             if days % self.freq == 0: #进行交易
                 self.doTrade(days)
             else:
@@ -270,11 +287,21 @@ class simulate(object):
         self.getIndex()
         # 作图测试
         plt.figure()
-        plt.plot(self.rate[0], label = "300etf")
-        plt.plot(self.rate[1], label = "nasetf")
+        plt.plot(self.rate[0], label = "300etf", linestyle = "-")
+        plt.plot(self.data[0]["close"]/self.data[0]["close"][0]-1.0, label = "300", linestyle = "-.")
+        plt.legend(loc="best")
+        plt.savefig("simulate_01.png")
+        plt.figure()
+        plt.plot(self.rate[1], label = "nasetf", linestyle = "--")
+        plt.plot(self.data[1]["close"]/self.data[1]["close"][0]-1.0, label = "nas", linestyle = ":")
+        plt.legend(loc="best")
+        plt.savefig("simulate_02.png")
+        plt.figure()
+        plt.plot(self.data[0]["close"]/self.data[0]["close"][0]-1.0, label = "300", linestyle = "-.")
+        plt.plot(self.data[1]["close"]/self.data[1]["close"][0]-1.0, label = "nas", linestyle = ":")
         plt.plot(self.totalrate, label = "total")
         plt.legend(loc="best")
-        plt.savefig("simulate_test2.png")
+        plt.savefig("simulate_03.png")
         
             
 if __name__ == "__main__":
