@@ -4,6 +4,7 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
 
 
 """
@@ -57,14 +58,10 @@ class simulate(object):
         self.bStop = [False] * 2
         # 是否正在停止止盈
         self.bStart = [False] * 2
-        # 止盈的股票数量
-        self.CutStock = [0] * 2
-        # 止盈得到的钱
-        self.CutMoney = [0.0, 0.0]
-        # 止盈的手续费
-        self.CutFee = [0.0, 0.0]
-        # 是否需要进行更新的标志
-        self.bCutUpdate = [False] * 2
+    
+
+        #清屏
+        os.system("cls")
         
         
     # 计算持仓股票市值
@@ -109,13 +106,18 @@ class simulate(object):
         # 更新数据
         # 只有股票数量大于一手并且交易金额小于预定金额才做
         if num > 100 and value + fee <= money:
-            self.CutStock[code] = num
-            self.CutMoney[code] = value
-            self.CutFee[code] = fee
-            self.bCutUpdate[code] = True
             self.money_cut[code] += value - fee
         
             # print("a", code, days, money, num, value, fee)
+            # 进行止盈操作
+            self.stock[code][days] -= num
+            self.value[code][days] -= value
+            self.fee[code][days] += fee
+            self.rate[code][days] = (self.value[code][days] + value - fee)/ self.cost[code][days] -1.0
+            # print(self.cost[code])
+            # print(self.value[code])
+            # print(self.rate[code])
+            print("止盈", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
         else:
             self.bStop[code] = False
         
@@ -152,7 +154,7 @@ class simulate(object):
             self.value[code][days] += value
             self.fee[code][days] += fee
             self.money_cut[code] -= value+fee
-            print("停止止盈的地方", code, days, self.money_cut[code])
+            print("停止止盈", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
 
     # 进行交易
     def doTrade(self, days):
@@ -228,17 +230,7 @@ class simulate(object):
         
     # 在止盈操作以后更新数据
     def cutUpdate(self, code, days):
-        if self.bCutUpdate[code]:
-            self.stock[code][days] -= self.CutStock[code]
-            self.value[code][days] -= self.CutMoney[code]
-            self.fee[code][days] += self.CutFee[code]
-            self.rate[code][days] = (self.value[code][days] + self.CutMoney[code] - self.CutFee[code])/ self.cost[code][days] -1.0
-            # print("b", code, days, self.value[code][days], self.CutMoney[code], self.CutFee[code], self.cost[code][days])
-            self.CutStock[code] = 0.0
-            self.CutMoney[code] = 0.0
-            self.CutFee[code] = 0.0
-            self.bCutUpdate[code] = False
-            
+        pass
             
             
     # 将两个个股的数据综合，计算总收益率
@@ -248,7 +240,7 @@ class simulate(object):
         self.totalvalue[days] = self.value[0][days] + self.value[1][days]
         self.totalrate[days] = self.totalvalue[days] / self.totalcost[days] - 1.0
         # print(days, self.totalcost[days], self.totalfee[days], self.totalvalue[days], self.totalrate[days])
-        print(days, self.money_cut[0], self.money_cut[1])
+        # print(days, self.money_cut[0], self.money_cut[1])
     
         
     # 计算回测指标
@@ -258,6 +250,11 @@ class simulate(object):
     # 执行交易循环
     def run(self):
         for days in range(self.totalTimes):
+            if days % self.freq == 0: #进行交易
+                self.doTrade(days)
+            else:
+                for code in range(2):
+                    self.update(code, days)
             if days == 0:
                 self.minPrice[0] = self.data[0]["close"][0]
                 self.minPrice[1] = self.data[1]["close"][0]
@@ -267,20 +264,18 @@ class simulate(object):
                 for code in range(2):
                     if self.isStopProfit(code, days):
                         self.doStopProfit(code, days)
-                        print(code, days, "止盈")
-                
+                        # print(code, days, "止盈")
+                        # print(code, days, self.cost[code][days-1], self.value[code][days-1], self.cost[code][days], self.value[code][days])
+
             for code in range(2):
                 if self.isReturnBuy(code, days):
                     self.doReturnBuy(code, days)
-                    print(code, days, "停止止盈")
-            if days % self.freq == 0: #进行交易
-                self.doTrade(days)
-            else:
-                for code in range(2):
-                    self.update(code, days)
-            # 止盈后更新数据
-            for code in range(2):
-                self.cutUpdate(code, days)
+                    # print(code, days, "停止止盈")
+                    # print(code, days, self.cost[code][days-1], self.value[code][days-1], self.cost[code][days], self.value[code][days])
+
+            # # 止盈后更新数据
+            # for code in range(2):
+            #     self.cutUpdate(code, days)
             self.combine(days)
             self.tradeTimes += 1
             # print(days, self.totalcost[days], self.totalvalue[days], self.totalrate[days])
@@ -290,18 +285,21 @@ class simulate(object):
         plt.plot(self.rate[0], label = "300etf", linestyle = "-")
         plt.plot(self.data[0]["close"]/self.data[0]["close"][0]-1.0, label = "300", linestyle = "-.")
         plt.legend(loc="best")
-        plt.savefig("simulate_01.png")
+        plt.show()
+        # plt.savefig("simulate_01.png")
         plt.figure()
         plt.plot(self.rate[1], label = "nasetf", linestyle = "--")
         plt.plot(self.data[1]["close"]/self.data[1]["close"][0]-1.0, label = "nas", linestyle = ":")
         plt.legend(loc="best")
-        plt.savefig("simulate_02.png")
+        plt.show()
+        # plt.savefig("simulate_02.png")
         plt.figure()
         plt.plot(self.data[0]["close"]/self.data[0]["close"][0]-1.0, label = "300", linestyle = "-.")
         plt.plot(self.data[1]["close"]/self.data[1]["close"][0]-1.0, label = "nas", linestyle = ":")
         plt.plot(self.totalrate, label = "total")
         plt.legend(loc="best")
-        plt.savefig("simulate_03.png")
+        plt.show()
+        # plt.savefig("simulate_03.png")
         
             
 if __name__ == "__main__":
