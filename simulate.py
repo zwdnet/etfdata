@@ -58,18 +58,18 @@ class simulate(object):
         self.bStop = [False] * 2
         # 是否正在停止止盈
         self.bStart = [False] * 2
+        # 最后一次止盈的钱
+        self.cutValue = [0.0] * 2
+        self.cutFee = [0.0] * 2
     
 
         #清屏
-        os.system("cls")
+        os.system("clear")
         
-        
-    # 计算持仓股票市值
-    def getValue(self):
-        pass
         
     # 判断是否进行止盈操作，根据days前的交易情况，code为0或1
     def isStopProfit(self, code, days):
+        return False # 测试用
         price = self.data[code]["close"][days]
         # 没有正在进行止盈
         if self.bStop[code] == False:
@@ -106,6 +106,7 @@ class simulate(object):
         # 更新数据
         # 只有股票数量大于一手并且交易金额小于预定金额才做
         if num > 100 and value + fee <= money:
+            print("止盈前", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
             self.money_cut[code] += value - fee
         
             # print("a", code, days, money, num, value, fee)
@@ -113,17 +114,20 @@ class simulate(object):
             self.stock[code][days] -= num
             self.value[code][days] -= value
             self.fee[code][days] += fee
-            self.rate[code][days] = (self.value[code][days] + value - fee)/ self.cost[code][days] -1.0
+            self.rate[code][days] = (self.value[code][days] + self.money_cut[code])/ self.cost[code][days] -1.0
+            #self.cutValue[code] = value
+#            self.cutFee[code] = fee
             # print(self.cost[code])
             # print(self.value[code])
             # print(self.rate[code])
-            print("止盈", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
+            print("止盈后", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
         else:
             self.bStop[code] = False
         
 
     # 判断是否需要重新购买
     def isReturnBuy(self, code, days):
+        return False #测试用
         # 如果进行了止盈，判断是否停止止盈
         if self.bStop[code] == True or self.bStart[code] == True:
             price = self.data[code]["close"][days]
@@ -150,11 +154,12 @@ class simulate(object):
         if num <= 100 or value + fee > money:
             self.bStart[code] = False
         else: # 进行交易并更新数据。
+            print("停止止盈前", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
             self.stock[code][days] += num
             self.value[code][days] += value
             self.fee[code][days] += fee
             self.money_cut[code] -= value+fee
-            print("停止止盈", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
+            print("停止止盈后", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
 
     # 进行交易
     def doTrade(self, days):
@@ -225,7 +230,7 @@ class simulate(object):
         self.stock[code][days] = self.stock[code][days - 1]
         self.value[code][days] = self.stock[code][days] * self.data[code]["close"][days]
         self.fee[code][days] = self.fee[code][days - 1]
-        self.rate[code][days] = self.value[code][days] / self.cost[code][days] -1.0
+        self.rate[code][days] = (self.value[code][days] + self.money_cut[code])/ self.cost[code][days] -1.0
         
         
     # 在止盈操作以后更新数据
@@ -238,7 +243,7 @@ class simulate(object):
         self.totalcost[days] = self.cost[0][days] + self.cost[1][days]
         self.totalfee[days] = self.fee[0][days] + self.fee[1][days]
         self.totalvalue[days] = self.value[0][days] + self.value[1][days]
-        self.totalrate[days] = self.totalvalue[days] / self.totalcost[days] - 1.0
+        self.totalrate[days] = (self.totalvalue[days] + self.money_cut[0] + self.money_cut[1])/ self.totalcost[days] - 1.0
         # print(days, self.totalcost[days], self.totalfee[days], self.totalvalue[days], self.totalrate[days])
         # print(days, self.money_cut[0], self.money_cut[1])
     
@@ -255,6 +260,7 @@ class simulate(object):
             else:
                 for code in range(2):
                     self.update(code, days)
+            print("位置a", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
             if days == 0:
                 self.minPrice[0] = self.data[0]["close"][0]
                 self.minPrice[1] = self.data[1]["close"][0]
@@ -277,6 +283,7 @@ class simulate(object):
             # for code in range(2):
             #     self.cutUpdate(code, days)
             self.combine(days)
+            print("位置b", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
             self.tradeTimes += 1
             # print(days, self.totalcost[days], self.totalvalue[days], self.totalrate[days])
         self.getIndex()
@@ -285,21 +292,35 @@ class simulate(object):
         plt.plot(self.rate[0], label = "300etf", linestyle = "-")
         plt.plot(self.data[0]["close"]/self.data[0]["close"][0]-1.0, label = "300", linestyle = "-.")
         plt.legend(loc="best")
-        plt.show()
-        # plt.savefig("simulate_01.png")
+        # plt.show()
+        plt.savefig("simulate_01.png")
         plt.figure()
         plt.plot(self.rate[1], label = "nasetf", linestyle = "--")
         plt.plot(self.data[1]["close"]/self.data[1]["close"][0]-1.0, label = "nas", linestyle = ":")
         plt.legend(loc="best")
-        plt.show()
-        # plt.savefig("simulate_02.png")
+        # plt.show()
+        plt.savefig("simulate_02.png")
         plt.figure()
         plt.plot(self.data[0]["close"]/self.data[0]["close"][0]-1.0, label = "300", linestyle = "-.")
         plt.plot(self.data[1]["close"]/self.data[1]["close"][0]-1.0, label = "nas", linestyle = ":")
         plt.plot(self.totalrate, label = "total")
         plt.legend(loc="best")
-        plt.show()
-        # plt.savefig("simulate_03.png")
+        # plt.show()
+        plt.savefig("simulate_03.png")
+        
+        plt.figure()
+        
+        plt.plot(self.value[0], label = "300value")
+        plt.plot(self.cost[0], label = "300cost")
+        plt.legend(loc = "best")
+        plt.savefig("debug1.png")
+        
+        plt.figure()
+        
+        plt.plot(self.value[1], label = "nasvalue")
+        plt.plot(self.cost[1], label = "nascost")
+        plt.legend(loc = "best")
+        plt.savefig("debug2.png")
         
             
 if __name__ == "__main__":
