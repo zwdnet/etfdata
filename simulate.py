@@ -69,7 +69,7 @@ class simulate(object):
         
     # 判断是否进行止盈操作，根据days前的交易情况，code为0或1
     def isStopProfit(self, code, days):
-        return False # 测试用
+        # return False # 测试用
         price = self.data[code]["close"][days]
         # 没有正在进行止盈
         if self.bStop[code] == False:
@@ -106,7 +106,7 @@ class simulate(object):
         # 更新数据
         # 只有股票数量大于一手并且交易金额小于预定金额才做
         if num > 100 and value + fee <= money:
-            print("止盈前", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
+            # print("止盈前", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
             self.money_cut[code] += value - fee
         
             # print("a", code, days, money, num, value, fee)
@@ -120,14 +120,14 @@ class simulate(object):
             # print(self.cost[code])
             # print(self.value[code])
             # print(self.rate[code])
-            print("止盈后", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
+            # print("止盈后", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
         else:
             self.bStop[code] = False
         
 
     # 判断是否需要重新购买
     def isReturnBuy(self, code, days):
-        return False #测试用
+        # return False #测试用
         # 如果进行了止盈，判断是否停止止盈
         if self.bStop[code] == True or self.bStart[code] == True:
             price = self.data[code]["close"][days]
@@ -154,12 +154,12 @@ class simulate(object):
         if num <= 100 or value + fee > money:
             self.bStart[code] = False
         else: # 进行交易并更新数据。
-            print("停止止盈前", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
+            # print("停止止盈前", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
             self.stock[code][days] += num
             self.value[code][days] += value
             self.fee[code][days] += fee
             self.money_cut[code] -= value+fee
-            print("停止止盈后", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
+            # print("停止止盈后", code, days, self.value[code][days], self.cost[code][days], self.stock[code][days], self.rate[code][days], num, value, fee)
 
     # 进行交易
     def doTrade(self, days):
@@ -195,12 +195,12 @@ class simulate(object):
             self.stock[0][days] = num0 + self.stock[0][days - 1]
             self.value[0][days] = self.stock[0][days] * self.data[0]["close"][days]
             self.fee[0][days] = fee0 + self.fee[0][days - 1]
-            self.rate[0][days] = self.value[0][days] / self.cost[0][days] -1.0
+            self.rate[0][days] = (self.value[0][days] + self.money_cut[0])/ self.cost[0][days] -1.0
             self.cost[1][days] = cost1 + self.cost[1][days - 1]
             self.stock[1][days] = num1 + self.stock[1][days - 1]
             self.value[1][days] = self.stock[1][days] * self.data[1]["close"][days]
             self.fee[1][days] = fee1 + self.fee[1][days - 1]
-            self.rate[1][days] = self.value[1][days] / self.cost[1][days] -1.0
+            self.rate[1][days] = (self.value[1][days] + self.money_cut[1])/ self.cost[1][days] -1.0
         # print(days, self.cost[0][days], self.stock[0][days], self.value[0][days], self.rate[0][days], self.rate[1][days])
             
         
@@ -260,7 +260,7 @@ class simulate(object):
             else:
                 for code in range(2):
                     self.update(code, days)
-            print("位置a", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
+            # print("位置a", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
             if days == 0:
                 self.minPrice[0] = self.data[0]["close"][0]
                 self.minPrice[1] = self.data[1]["close"][0]
@@ -283,7 +283,7 @@ class simulate(object):
             # for code in range(2):
             #     self.cutUpdate(code, days)
             self.combine(days)
-            print("位置b", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
+            # print("位置b", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
             self.tradeTimes += 1
             # print(days, self.totalcost[days], self.totalvalue[days], self.totalrate[days])
         self.getIndex()
