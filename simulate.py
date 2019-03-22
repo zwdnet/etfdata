@@ -17,9 +17,11 @@ import os
     data:股票历史数据，为一个数组。
     stopPoint: 止盈点
     startPoint: 止盈以后何时停止止盈
+    stopRate: 止盈比例
+    startRate: 停止止盈的比例
 """
 class simulate(object):
-    def __init__(self, money, totalTimes, freq, feerate, data, stopPoint, startPoint):
+    def __init__(self, money, totalTimes, freq, feerate, data, stopPoint, startPoint, stopRate, startRate):
         self.money = money
         self.tradeTimes = 0  # 已经交易次数
         self.totalTimes = totalTimes
@@ -28,6 +30,8 @@ class simulate(object):
         self.data = data
         self.stopPoint = stopPoint
         self.startPoint = startPoint
+        self.stopRate = stopRate
+        self.startRate = startRate
         # 股票交易数据
         # 每次交易剩下的钱
         self.money_rem = [0.0, 0.0]
@@ -66,40 +70,35 @@ class simulate(object):
         #清屏
         os.system("clear")
         
+    # 进行输出
+    def display(self, days):
+        print("交易日:%d 成本1:%.2f 持仓量1:%.2f 市值1:%.2f 收益率1:%.2f  成本2:%.2f 持仓量2:%.2f 市值2:%.2f 收益率2:%.2f " % (days, self.cost[0][days], self.stock[0][days], self.value[0][days], self.rate[0][days], self.cost[1][days], self.stock[1][days], self.value[1][days], self.rate[1][days]))
+        
         
     # 判断是否进行止盈操作，根据days前的交易情况，code为0或1
     def isStopProfit(self, code, days):
         # return False # 测试用
-        price = self.data[code]["close"][days]
-        # 没有正在进行止盈
-        if self.bStop[code] == False:
+        # 没有正在进行止盈和停止止盈
+        if self.bStop[code] == False and self.bStart[code] == False:
+            price = self.data[code]["close"][days]
             if self.minPrice[code] > price:
                 self.minPrice[code] = price
             if self.maxPrice[code] < price:
                 self.maxPrice[code] = price
             # 判断止盈条件
             if price/self.maxPrice[code] <= 1.0 - self.stopPoint:
-                self.bStop[code] = True
                 # 将最高/低价调整到现价
                 self.maxPrice[code] = price
                 self.minPrice[code] = price
-                return True
-        # 如果已经进行了止盈
-        if self.bStop[code] == True:
-            if self.minPrice[code] > price:
-                self.minPrice[code] = price
-            # 判断止盈条件
-            if price/self.maxPrice[code] <= 1.0 - self.stopPoint:
-                # 将最高/低价调整到现价
-                self.maxPrice[code] = price
-                self.minPrice[code] = price
+                if self.bStop[code] == False:
+                    self.bStop[code] = True
                 return True
         return False
                 
         
     # 进行止盈操作
     def doStopProfit(self, code, days):
-        money = self.value[code][days-1]/2.0
+        money = self.value[code][days-1] * self.stopRate
         num = self.getTradeNumber(money, self.data[code]["close"][days])
         value = num * self.data[code]["close"][days]
         fee = self.getFee(num, self.data[code]["close"][days])
@@ -132,6 +131,7 @@ class simulate(object):
         if self.bStop[code] == True or self.bStart[code] == True:
             price = self.data[code]["close"][days]
             if price/self.minPrice[code] >= 1.0 + self.startPoint:
+                print("停止止盈", code, days, price, price/self.minPrice[code])
                 self.bStart[code] = True
                 # 将最高/低价调整到现价
                 self.maxPrice[code] = price
@@ -145,7 +145,7 @@ class simulate(object):
     # 用止盈的钱重新购买etf
     def doReturnBuy(self, code, days):
         # 用止盈得到的剩余的钱的一半以现价再投资。
-        money = self.money_cut[code]/2.0
+        money = self.money_cut[code] * self.startRate
         num = self.getTradeNumber(money, self.data[code]["close"][days])
         value = num * self.data[code]["close"][days]
         fee = self.getFee(num, self.data[code]["close"][days])
@@ -201,7 +201,6 @@ class simulate(object):
             self.value[1][days] = self.stock[1][days] * self.data[1]["close"][days]
             self.fee[1][days] = fee1 + self.fee[1][days - 1]
             self.rate[1][days] = (self.value[1][days] + self.money_cut[1])/ self.cost[1][days] -1.0
-        # print(days, self.cost[0][days], self.stock[0][days], self.value[0][days], self.rate[0][days], self.rate[1][days])
             
         
     # 计算给定数量资金和股价可以买多少股票
@@ -260,6 +259,7 @@ class simulate(object):
             else:
                 for code in range(2):
                     self.update(code, days)
+            self.display(days)
             # print("位置a", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
             if days == 0:
                 self.minPrice[0] = self.data[0]["close"][0]
@@ -274,6 +274,7 @@ class simulate(object):
                         # print(code, days, self.cost[code][days-1], self.value[code][days-1], self.cost[code][days], self.value[code][days])
 
             for code in range(2):
+                # print(days, code, self.data[code]["close"][days], self.minPrice[code], self.maxPrice[code])
                 if self.isReturnBuy(code, days):
                     self.doReturnBuy(code, days)
                     # print(code, days, "停止止盈")
@@ -283,7 +284,8 @@ class simulate(object):
             # for code in range(2):
             #     self.cutUpdate(code, days)
             self.combine(days)
-            # print("位置b", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days])
+            # print("位置b", days, self.value[0][days], self.cost[0][days], self.rate[0][days], self.value[1][days], self.cost[1][days], self.rate[1][days], self.totalrate[days], self.money_cut[0], self.money_cut[1])
+            # print(days, self.money_cut[0], self.money_cut[1])
             self.tradeTimes += 1
             # print(days, self.totalcost[days], self.totalvalue[days], self.totalrate[days])
         self.getIndex()
@@ -334,6 +336,6 @@ if __name__ == "__main__":
     df_nas = df_nas.loc[0:length2, ["date", "close"]]
     data = [df_300, df_nas]
     # print(data[0].head())
-    test = simulate(1000, len(df_300), 10, 0.0003, data, 0.1, 0.1)
+    test = simulate(1000, len(df_300), 10, 0.0003, data, 0.1, 0.1, 0.2, 0.2)
     test.run()
     
