@@ -79,7 +79,7 @@ class simulate(object):
     def isStopProfit(self, code, days):
         # return False # 测试用
         # 没有正在进行止盈和停止止盈
-        if self.bStop[code] == False and self.bStart[code] == False:
+        if self.bStart[code] == False:
             price = self.data[code]["close"][days]
             if self.minPrice[code] > price:
                 self.minPrice[code] = price
