@@ -422,15 +422,15 @@ if __name__=="__main__":
 #    fig = plt.figure()
 #    plt.plot(shaper)
 #    fig.savefig("montecarlo_shaper.png")
-    #获取从2013年5月15日至2019年02月01日的数据
+    #获取从2013年5月15日至2019年04月23日的数据
     #beginTime = 20130515
-#    endTime = 20190201
+#    endTime = 20190423
 #    etf300 = etfdata.GetHistoryData("510300", beginTime, endTime)
 #    etfnas = etfdata.GetHistoryData("513100", beginTime, endTime)
 #    print(len(etf300), len(etfnas))
-#    #保存文件
-#    etf300.to_csv("df_300_hist.csv")
-#    etfnas.to_csv("df_nas_hist.csv")
+    #保存文件
+    etf300.to_csv("df_300_hist.csv")
+    etfnas.to_csv("df_nas_hist.csv")
     #读取数据
     df_300 = pd.read_csv("df_300_hist.csv")
     df_nas = pd.read_csv("df_nas_hist.csv")
