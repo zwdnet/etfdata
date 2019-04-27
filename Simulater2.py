@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 # 重新建立一个交易模拟函数吧
 # 之前的太乱了
 
@@ -5,6 +6,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import getIndex
 
 
 """
@@ -168,6 +170,25 @@ class simulater(object):
         plt.plot(self.totalRate, label = "total")
         plt.legend(loc="best")
         plt.savefig("simulater_03.png")
+        
+        plt.figure()
+        plt.plot(self.totalCost, label = "cost", linestyle = "-.")
+        plt.plot(self.totalIncome, label = "income", linestyle = ":")
+        plt.plot(self.totalValue, label = "total")
+        plt.legend(loc="best")
+        plt.savefig("simulater_04.png")
+        
+        plt.figure()
+        plt.plot(self.totalIncome, label = "total")
+        plt.legend(loc="best")
+        plt.savefig("simulater_05.png")
+        
+        
+    # 计算回测指标
+    def index(self, data):
+        getindex = getIndex.getIndex(data)
+        getindex.max_drawdown()
+        print("最大回撤:%2f" % getindex.md)
     
         
     # 交易循环
@@ -181,6 +202,7 @@ class simulater(object):
             self.combine(days)
             self.display(days)
         self.draw()
+        self.index(self.totalRate)
         
         
 if __name__ == "__main__":
