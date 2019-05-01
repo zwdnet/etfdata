@@ -187,7 +187,7 @@ class simulater(object):
     # 计算回测指标
     def index(self, data):
         getindex = getIndex.getIndex(data)
-        getindex.max_drawdown()
+        getindex.max_drawdownRate()
         print("最大回撤:%2f" % getindex.md)
     
         
