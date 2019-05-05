@@ -88,6 +88,15 @@ def xirr(cashflows,guess=0.1):
 
 
 if __name__ == "__main__":
-    short = [(datetime.date(2000, 6, 9), 2500.0), (datetime.date(2000, 6, 9), -2500.0)]
+    # short = [(datetime.date(2000, 6, 9), 2500.0), (datetime.date(2000, 6, 9), -2500.0)]
+    short = [
+    (datetime.date(2017, 11, 21), -300.00),
+    (datetime.date(2017, 12, 21), -400.00),
+    (datetime.date(2018, 1, 4), -225.00),
+    (datetime.date(2018, 1, 16), -400.00),
+    (datetime.date(2018, 1, 16), 88.00),
+    (datetime.date(2018, 1, 18), -400.00),
+    (datetime.date(2018, 1, 22), 1680.00)
+    ]
     ret = xirr(short)
     print(ret)
