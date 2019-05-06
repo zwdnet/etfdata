@@ -6,6 +6,8 @@
 
 import datetime
 from scipy import optimize 
+from random import random
+import pandas as pd
 
 
 def secant_method(tol, f, x0):
@@ -100,3 +102,59 @@ if __name__ == "__main__":
     ]
     ret = xirr(short)
     print(ret)
+    
+    beginDate = datetime.date(2018,1,1)
+    timedelta = datetime.timedelta(days = 1)
+    #print(beginDate)
+#    print(timedelta)
+#    print(beginDate + timedelta)
+    now = beginDate
+    cost = 0.0
+    money = 1000
+    freq = 10
+    money_rem = 0.0
+    price = 1.0
+    feeRate = 0.0003
+    stocks = 0
+    value = 0.0
+    data = []
+    for day in range(365):
+        now = now + timedelta
+        # print(now)
+        r = random()
+        if r < 0.5:
+            price = price - 0.01
+            if price < 0.0:
+                price = 0.0
+        else:
+            price = price + 0.01
+        if day % freq == 0:
+            money = money + money_rem
+            money_rem = 0
+            num = int(money/price/100)*100
+            fee = num*price*feeRate
+            if fee < 0.1:
+                fee = 0.1
+            if num*price + fee <= money:
+                num = num
+            elif num >= 200:
+                if (num - 100)*price <= money:
+                    num = num - 100
+                else:
+                    num = 0
+            cost = num*price + fee
+            stocks += num
+            value = stocks*price
+            money_rem = money - cost
+            data.append((now, cost*(-1.0)))
+    
+    value = stocks*price
+    print(stocks, value)
+    data.append((now, value))
+    print(data)
+    xirr_res = xirr(data)
+    print(xirr_res)
+    file = pd.DataFrame(data, columns=["日期", "金额"])
+    file.to_csv("xirr_test.csv")
+    
+            

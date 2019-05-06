@@ -215,7 +215,7 @@ if __name__ == "__main__":
     df_300 = df_300.loc[0:length1, ["date", "close"]]
     df_nas = df_nas.loc[0:length2, ["date", "close"]]
     data = [df_300, df_nas]
-    # print(data[0].head())
+    print(data[0].head())
     test = simulater(1000, data, len(df_300), 10, 0.0003)
     test.run()
     
