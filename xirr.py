@@ -8,6 +8,7 @@ import datetime
 from scipy import optimize 
 from random import random
 import pandas as pd
+import copy
 
 
 def secant_method(tol, f, x0):
@@ -87,6 +88,17 @@ def xirr(cashflows,guess=0.1):
     
     #return secant_method(0.0001,lambda r: xnpv(r,cashflows),guess)
     return optimize.newton(lambda r: xnpv(r,cashflows),guess)
+    
+    
+# 返回给定数据的年化收益率
+def aRets(data, now, price, stocks):
+    # 方法，在data里加一行数据，卖出现有持仓，然后计算
+    tempData = copy.deepcopy(data)
+    value = stocks*price
+    tempData.append((now, value))
+    print(tempData)
+    retRate = xirr(tempData)
+    return retRate
 
 
 if __name__ == "__main__":
@@ -147,11 +159,15 @@ if __name__ == "__main__":
             value = stocks*price
             money_rem = money - cost
             data.append((now, cost*(-1.0)))
+        if day >= 0:
+            # 计算今日的年化收益率
+            rate = aRets(data, now, price, stocks)
+            print(now, rate)
     
     value = stocks*price
     print(stocks, value)
     data.append((now, value))
-    print(data)
+    print(data[-1])
     xirr_res = xirr(data)
     print(xirr_res)
     file = pd.DataFrame(data, columns=["日期", "金额"])
