@@ -3,6 +3,7 @@
 
 import tushare as ts
 import os
+import datetime
 
 
 #将八位数字的日期转换为yyyy-mm-dd
@@ -21,6 +22,16 @@ def TransfDate2(s):
     day = int(s[8:11])
     date = year*10000+month*100+day
     return date
+    
+    
+# 将日期转换为datetime.date
+def TransfDate2Datetime(s):
+    year = int(s[0:4])
+    month = int(s[5:7])    
+    day = int(s[8:11])
+    date = datetime.date(year, month, day)
+    return date
+    
 
 
 # 获取历史数据
@@ -44,6 +55,9 @@ def updateData(endTime):
     
     
 if __name__ == "__main__":
-    updateData(20190423)
+    updateData(20190510)
     print("历史数据获取成功")
+    #date = TransfDate2Datetime("2010-01-10")
+#    print(date, dir(date))
+    
     

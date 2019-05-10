@@ -7,7 +7,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import getIndex
-
+import xirr_cal
+import datetime
+import GetHistoryData
+import copy
 
 """
 模拟交易类
@@ -22,11 +25,15 @@ fee: 交易手续费
 value: 持仓市值
 income: 收益
 incomeRate: 收益率
+xirr: 年化收益率
+cashFlow: 现金流量表
+cashDate: 交易日期
 totalCost: 总成本
 totalFee: 总费用
 totalValue: 总市值
 totalIncome: 总收益
 totalRate: 总收益率
+totalXirr: 总年化收益率
 money_rem: 每次交易剩下的钱
 """
 class simulater(object):
@@ -42,11 +49,15 @@ class simulater(object):
         self.value = [[0.0] * self.totalTimes for row in range(2)]
         self.income = [[0.0] * self.totalTimes for row in range(2)]
         self.incomeRate = [[0.0] * self.totalTimes for row in range(2)]
+        self.xirr = [[0.0] * self.totalTimes for row in range(2)]
+        self.cashFlow = [[] * self.totalTimes for row in range(2)]
+        self.cashDate = [[] * self.totalTimes for row in range(2)]
         self.totalCost = [0] * self.totalTimes
         self.totalFee = [0] * self.totalTimes
         self.totalValue = [0] * self.totalTimes
         self.totalIncome = [0] * self.totalTimes
         self.totalRate = [0] * self.totalTimes
+        self.totalXirr = [0] * self.totalTimes
         self.money_rem = [0.0, 0.0]
         
         
@@ -186,9 +197,15 @@ class simulater(object):
         
     # 计算回测指标
     def index(self, data):
-        getindex = getIndex.getIndex(data)
-        getindex.max_drawdownRate()
-        print("最大回撤:%2f" % getindex.md)
+        # getindex = getIndex.getIndex(data)
+        # getindex.max_drawdownRate()
+        # print("最大回撤:%2f" % getindex.md)
+        pass
+        
+        
+    # 用xirr计算年化收益率
+    def xirr(self, days):
+        pass
     
         
     # 交易循环
@@ -216,6 +233,8 @@ if __name__ == "__main__":
     df_nas = df_nas.loc[0:length2, ["date", "close"]]
     data = [df_300, df_nas]
     print(data[0].head())
+    dates = datetime.date(df_300["date"][0])
+    print(dates)
     test = simulater(1000, data, len(df_300), 10, 0.0003)
     test.run()
     

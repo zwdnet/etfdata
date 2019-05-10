@@ -80,5 +80,9 @@ if __name__ == "__main__":
     plt.figure()
     plt.plot(returnRates)
     plt.savefig("xirr_test.png")
-    
+    val = [-10000, -1000, 1010, 10000]
+    date = [datetime.date(2012, 1,1), datetime.date(2012, 1, 11), datetime.date(2012, 1, 12),
+    datetime.date(2012,12,31)]
+    result = xirr.xirr(val, date)
+    print(result)
             
