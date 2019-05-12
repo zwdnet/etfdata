@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import getIndex
-import xirr_cal
+import xirr_cal as xirr
 import datetime
 import GetHistoryData
 import copy
@@ -33,6 +33,8 @@ totalFee: 总费用
 totalValue: 总市值
 totalIncome: 总收益
 totalRate: 总收益率
+totalCashFlow: 总现金流量表
+totalCashDate: 总现金流量发生日期
 totalXirr: 总年化收益率
 money_rem: 每次交易剩下的钱
 """
@@ -57,6 +59,8 @@ class simulater(object):
         self.totalValue = [0] * self.totalTimes
         self.totalIncome = [0] * self.totalTimes
         self.totalRate = [0] * self.totalTimes
+        self.totalCashFlow = []
+        self.totalCashDate = []
         self.totalXirr = [0] * self.totalTimes
         self.money_rem = [0.0, 0.0]
         
@@ -102,7 +106,7 @@ class simulater(object):
             
     # 进行输出
     def display(self, days):
-        print("交易日:%d 成本1:%.2f 持仓量1:%.2f 市值1:%.2f 收益率1:%.2f  成本2:%.2f 持仓量2:%.2f 市值2:%.2f 收益率2:%.2f 总收益率:%.2f" % (days, self.cost[0][days], self.position[0][days], self.value[0][days], self.incomeRate[0][days], self.cost[1][days], self.position[1][days], self.value[1][days], self.incomeRate[1][days], self.totalRate[days]))
+        print("交易日:%d 成本1:%.2f 持仓量1:%.2f 市值1:%.2f 收益率1:%.2f 年化收益率1:%.2f 成本2:%.2f 持仓量2:%.2f 市值2:%.2f 收益率2:%.2f 总收益率:%.2f 年化收益率2:%.2f 总年化收益率:%.2f" % (days, self.cost[0][days], self.position[0][days], self.value[0][days], self.incomeRate[0][days], self.xirr[0][days], self.cost[1][days], self.position[1][days], self.value[1][days], self.incomeRate[1][days], self.totalRate[days], self.xirr[1][days], self.totalXirr[days]))
         
         
     # 执行交易
@@ -131,6 +135,14 @@ class simulater(object):
                 self.cost[code][days] = self.cost[code][days-1] + cost[code]
                 self.fee[code][days] = self.fee[code][days-1] + fee[code]
                 self.position[code][days] = self.position[code][days-1] + stock[code]
+            # 更新现金流量表，算xirr用的
+            v = (value[code] + fee[code]) * (-1)
+            d = GetHistoryData.TransfDate2Datetime(self.data[code]["date"][days])
+            self.cashFlow[code].append(v)
+            self.cashDate[code].append(d)
+            self.totalCashFlow.append(v)
+            self.totalCashDate.append(d)
+            
             # 存入总市值
             self.value[code][days] = self.position[code][days] * self.data[code]["close"][days]
             # 更新剩余资金数据
@@ -194,6 +206,13 @@ class simulater(object):
         plt.legend(loc="best")
         plt.savefig("simulater_05.png")
         
+        plt.figure()
+        plt.plot(self.xirr[0], label = "300")
+        plt.plot(self.xirr[1], label = "nas")
+        plt.plot(self.totalXirr, label = "total")
+        plt.legend(loc="best")
+        plt.savefig("simulater_06.png")
+        
         
     # 计算回测指标
     def index(self, data):
@@ -204,8 +223,30 @@ class simulater(object):
         
         
     # 用xirr计算年化收益率
-    def xirr(self, days):
-        pass
+    def cal_xirr(self, days):
+        v = 0.0
+        date = GetHistoryData.TransfDate2Datetime(self.data[0]["date"][days])
+        for code in range(2):
+            value = self.data[code]["close"][days] * self.position[code][days]
+            v += value
+            self.cashFlow[code].append(value)
+            self.cashDate[code].append(date)
+            retXIRR = xirr.xirr(self.cashFlow[code], self.cashDate[code])
+            # 开始的时候会出现无限大的值，所以加这个
+            if retXIRR >= 1.0 or  retXIRR <= -1.0:
+                retXIRR = 0.0
+            self.xirr[code][days] = retXIRR
+            self.cashFlow[code].pop()
+            self.cashDate[code].pop()
+        self.totalCashFlow.append(v)
+        self.totalCashDate.append(date)
+        totalXIRR = xirr.xirr(self.totalCashFlow, self.totalCashDate)
+        if totalXIRR >= 1.0 or  totalXIRR <= -1.0:
+                totalXIRR = 0.0
+        self.totalXirr[days] = totalXIRR
+        self.totalCashFlow.pop()
+        self.totalCashDate.pop()
+        
     
         
     # 交易循环
@@ -217,7 +258,11 @@ class simulater(object):
                 for code in range(2):
                     self.update(code, days)
             self.combine(days)
-            self.display(days)
+            self.cal_xirr(days)
+            # print(self.xirr[0][days], self.xirr[1][days])
+            #self.display(days)
+            #print(self.cashFlow, self.cashDate)
+        # print(self.xirr[0])
         self.draw()
         self.index(self.totalRate)
         
@@ -232,9 +277,9 @@ if __name__ == "__main__":
     df_300 = df_300.loc[0:length1, ["date", "close"]]
     df_nas = df_nas.loc[0:length2, ["date", "close"]]
     data = [df_300, df_nas]
-    print(data[0].head())
-    dates = datetime.date(df_300["date"][0])
-    print(dates)
+    # print(data[0].head())
+    #dates = datetime.date(df_300["date"][0])
+    #print(dates)
     test = simulater(1000, data, len(df_300), 10, 0.0003)
     test.run()
     
