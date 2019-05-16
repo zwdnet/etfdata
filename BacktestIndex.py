@@ -14,6 +14,7 @@ class GetIndex(object):
     # 一列为策略，为我们的策略收益
     def __init__(self, data):
         self.data = data    #每天的年化收益率
+        # self.AR = pd.DataFrame(data["策略"].values[-1], columns=["年化收益率"], index=data["策略"].index)
         self.MD = 0.0 #最大回撤
         self.AB = 0.0 #αβ值
         self.SHR = 0.0 #夏普比例
@@ -42,22 +43,36 @@ class GetIndex(object):
         
     # 夏普比例
     def sharp(self):
-        pass
+        # 无风险年化收益率3%
+        exReturn = self.data - 0.03
+        sharperatio=np.sqrt(len(exReturn))*exReturn.mean()/exReturn.std()
+        self.SHR=pd.DataFrame(sharperatio, columns=["夏普比例"])
+        return self.SHR
         
         
     # 信息比例
     def information(self):
-        pass
+        ex_return = pd.DataFrame()
+        ex_return = self.data.iloc[:,1] - self.data.iloc[:,0]
+        information=np.sqrt(len(ex_return))*ex_return.mean()/ex_return.std()
+        self.INR=pd.DataFrame([information],columns=['信息比率'])
+        return self.INR
         
         
     # 合并回测策略
     def combine(self):
-        pass
+        self.indicators=pd.concat([self.MD, self.AB, self.SHR, self.INR], axis=1, join='outer')
+        return self.indicators
         
         
     # 计算回测策略
     def run(self):
-        pass
+        self.max_drawdown()
+        self.alpha_beta()
+        self.sharp()
+        self.information()
+        self.combine()
+        return self.indicators
 
 
 if __name__ == "__main__":
@@ -79,3 +94,16 @@ if __name__ == "__main__":
     print(B)
     ab = index.alpha_beta()
     print(ab)
+    
+    shr = index.sharp()
+    print(shr)
+    
+    print(data)
+    print(data.iloc[:,0])
+    print(data.iloc[:,1])
+    
+    inf = index.information()
+    print(inf)
+    
+    indicators = index.run()
+    print(indicators)
