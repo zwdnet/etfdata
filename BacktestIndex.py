@@ -23,7 +23,8 @@ class GetIndex(object):
 
     # 最大回撤
     def max_drawdown(self):
-        md=((self.data.cummax()-self.data)/self.data.cummax()).max()
+        #md=((self.data.cummax()-self.data)/self.data.cummax()).max()
+        md = (self.data.cummax()-self.data).max()
         self.MD = pd.DataFrame(md.values, columns=["最大回撤"], index = md.index)
         return self.MD
         

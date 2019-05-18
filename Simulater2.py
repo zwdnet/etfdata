@@ -273,7 +273,9 @@ class simulater(object):
             # print(self.xirr[0][days], self.xirr[1][days])
             #self.display(days)
             #print(self.cashFlow, self.cashDate)
-        # print(self.xirr[0])
+        #for r in self.xirr:
+#            if r == 0:
+#                print(r)
         self.draw()
         self.index(self.totalXirr)
         
