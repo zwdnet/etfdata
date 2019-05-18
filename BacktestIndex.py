@@ -9,12 +9,11 @@ from scipy import stats
 
 class GetIndex(object):
     # data: 策略每天的年化收益率
-    # 有两列策略，
+    # 有两列数据，
     # 一列为市场，市场的基准收益，
     # 一列为策略，为我们的策略收益
     def __init__(self, data):
         self.data = data    #每天的年化收益率
-        # self.AR = pd.DataFrame(data["策略"].values[-1], columns=["年化收益率"], index=data["策略"].index)
         self.MD = 0.0 #最大回撤
         self.AB = 0.0 #αβ值
         self.SHR = 0.0 #夏普比例
@@ -34,10 +33,9 @@ class GetIndex(object):
         x = self.data["市场"].values
         y = self.data["策略"].values
         b,a,r_value,p_value,std_err=stats.linregress(x, y)        
-        self.AB = pd.DataFrame()
-        self.AB["alpha"] = [a]
+        self.AB = pd.DataFrame([a], columns = ["alpha"], index = ["策略"])
         self.AB["beta"] = [b]
-        print(a,b)
+        print(self.AB)
         return self.AB
         
         
@@ -55,7 +53,7 @@ class GetIndex(object):
         ex_return = pd.DataFrame()
         ex_return = self.data.iloc[:,1] - self.data.iloc[:,0]
         information=np.sqrt(len(ex_return))*ex_return.mean()/ex_return.std()
-        self.INR=pd.DataFrame([information],columns=['信息比率'])
+        self.INR=pd.DataFrame([information],columns=['信息比率'], index = ["策略"])
         return self.INR
         
         
@@ -72,6 +70,10 @@ class GetIndex(object):
         self.sharp()
         self.information()
         self.combine()
+        print(self.MD)
+        print(self.AB)
+        print(self.SHR)
+        print(self.INR)
         return self.indicators
 
 

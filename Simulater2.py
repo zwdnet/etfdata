@@ -11,6 +11,7 @@ import xirr_cal as xirr
 import datetime
 import GetHistoryData
 import copy
+import BacktestIndex as BTI
 
 """
 模拟交易类
@@ -37,6 +38,7 @@ totalCashFlow: 总现金流量表
 totalCashDate: 总现金流量发生日期
 totalXirr: 总年化收益率
 money_rem: 每次交易剩下的钱
+testIndex: 回测指标
 """
 class simulater(object):
     def __init__(self, money, data, totalTimes, freq, feeRate):
@@ -63,6 +65,7 @@ class simulater(object):
         self.totalCashDate = []
         self.totalXirr = [0] * self.totalTimes
         self.money_rem = [0.0, 0.0]
+        self.testIndex = None
         
         
     # 计算交易手续费
@@ -216,10 +219,13 @@ class simulater(object):
         
     # 计算回测指标
     def index(self, data):
-        # getindex = getIndex.getIndex(data)
-        # getindex.max_drawdownRate()
-        # print("最大回撤:%2f" % getindex.md)
-        pass
+        # 先整理数据，市场基准数据用300etf
+        testdata = {"市场":self.xirr[0], "策略":data}
+        InputData = pd.DataFrame(testdata)
+        tester = BTI.GetIndex(InputData)
+        result = tester.run()
+        print(result)
+        self.testIndex = result
         
         
     # 用xirr计算年化收益率
@@ -233,7 +239,8 @@ class simulater(object):
             self.cashDate[code].append(date)
             retXIRR = xirr.xirr(self.cashFlow[code], self.cashDate[code])
             # 开始的时候会出现无限大的值，所以加这个
-            if retXIRR >= 1.0 or  retXIRR <= -1.0:
+            # 画图得知，前150天数据不靠谱，都设成0吧
+            if days <= 150:
                 retXIRR = 0.0
             self.xirr[code][days] = retXIRR
             self.cashFlow[code].pop()
@@ -241,12 +248,16 @@ class simulater(object):
         self.totalCashFlow.append(v)
         self.totalCashDate.append(date)
         totalXIRR = xirr.xirr(self.totalCashFlow, self.totalCashDate)
-        if totalXIRR >= 1.0 or  totalXIRR <= -1.0:
-                totalXIRR = 0.0
+        if days <= 150:
+            totalXIRR = 0.0
         self.totalXirr[days] = totalXIRR
         self.totalCashFlow.pop()
         self.totalCashDate.pop()
         
+        
+    # 获取回测数据
+    def GetIndex(self):
+        return self.testIndex
     
         
     # 交易循环
@@ -264,7 +275,7 @@ class simulater(object):
             #print(self.cashFlow, self.cashDate)
         # print(self.xirr[0])
         self.draw()
-        self.index(self.totalRate)
+        self.index(self.totalXirr)
         
         
 if __name__ == "__main__":
