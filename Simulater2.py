@@ -39,9 +39,13 @@ totalCashDate: 总现金流量发生日期
 totalXirr: 总年化收益率
 money_rem: 每次交易剩下的钱
 testIndex: 回测指标
+bCut: 是否进行止盈操作
+cutRate: 止盈点
+bDoCut: 是否要进行止盈操作了？由程序判断
+maxPrice: 近期最高股价
 """
 class simulater(object):
-    def __init__(self, money, data, totalTimes, freq, feeRate):
+    def __init__(self, money, data, totalTimes, freq, feeRate, bCut, cutRate):
         self.money = money
         self.data = data
         self.totalTimes = totalTimes
@@ -66,6 +70,10 @@ class simulater(object):
         self.totalXirr = [0] * self.totalTimes
         self.money_rem = [0.0, 0.0]
         self.testIndex = None
+        self.bCut = bCut
+        self.cutRate = cutRate
+        self.bDoCut = [False, False]
+        self.maxPrice = [0.0, 0.0]
         
         
     # 计算交易手续费
@@ -75,6 +83,31 @@ class simulater(object):
             fee = 0.1
         return fee
         
+        
+    # 是否进行止盈操作？
+    def isCut(self, code, days):
+        data = self.data[code]["close"][days]
+        # 更新最高股价信息
+        if days == 0:   # 第一天
+            self.maxPrice[code] = data
+        elif self.maxPrice[code] < data:
+            self.maxPrice[code] = data
+        # print(days, self.maxPrice)
+        # 判断，是否达到止盈点
+        backRate = (self.maxPrice[code] - data)/self.maxPrice[code]
+        if backRate >= self.cutRate:
+            self.bDoCut[code] = True
+        # print(days, self.bDoCut)
+        return self.bDoCut[code]
+        
+        
+    # 进行止盈操作
+    def doCut(self, code, days):
+        if self.bDoCut[code] == True:
+            # 执行止盈操作，卖出持仓股票的一半
+            num = int(self.position[code][days]/200.0)*100.0
+            print(days, code, num, self.position[code][days])
+    
         
     # 计算给定资金能买多少股票
     def getStockNumber(self, money, price):
@@ -263,6 +296,11 @@ class simulater(object):
     # 交易循环
     def run(self):
         for days in range(self.totalTimes):
+            # 如果设定了要进行止盈操作，先判断是否到了止盈点
+            if self.bCut == True:
+                for code in range(2):
+                    if self.isCut(code, days):
+                        self.doCut(code, days)
             if days % self.freq == 0: #进行交易
                 self.doTrade(days)
             else:
@@ -293,6 +331,6 @@ if __name__ == "__main__":
     # print(data[0].head())
     #dates = datetime.date(df_300["date"][0])
     #print(dates)
-    test = simulater(1000, data, len(df_300), 10, 0.0003)
+    test = simulater(1000, data, len(df_300), 10, 0.0003, True, 0.1)
     test.run()
     

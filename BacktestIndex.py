@@ -36,7 +36,7 @@ class GetIndex(object):
         b,a,r_value,p_value,std_err=stats.linregress(x, y)        
         self.AB = pd.DataFrame([a], columns = ["alpha"], index = ["策略"])
         self.AB["beta"] = [b]
-        print(self.AB)
+        # print(self.AB)
         return self.AB
         
         
@@ -71,10 +71,10 @@ class GetIndex(object):
         self.sharp()
         self.information()
         self.combine()
-        print(self.MD)
-        print(self.AB)
-        print(self.SHR)
-        print(self.INR)
+        # print(self.MD)
+        # print(self.AB)
+        # print(self.SHR)
+        # print(self.INR)
         return self.indicators
 
 
