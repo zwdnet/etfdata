@@ -85,6 +85,7 @@ def xirr(values, dates):
         newRate = resultRate - (resultValue / irrResultDeriv(values, dates, resultRate))
         epsRate = abs(newRate - resultRate)
         resultRate = newRate
+        # print("计算xirr%f" % resultRate)
         if resultRate < -1:
             resultRate = -0.999999999
         contLoop = (epsRate > epsMax) and (abs(resultValue) > epsMax)

@@ -43,6 +43,9 @@ bCut: 是否进行止盈操作
 cutRate: 止盈点
 bDoCut: 是否要进行止盈操作了？由程序判断
 maxPrice: 近期最高股价
+cutTimes: 进行了几次止盈了？最多四次
+backMoney: 止盈得到的钱
+backStack: 止盈回来的股票数量
 """
 class simulater(object):
     def __init__(self, money, data, totalTimes, freq, feeRate, bCut, cutRate):
@@ -74,6 +77,9 @@ class simulater(object):
         self.cutRate = cutRate
         self.bDoCut = [False, False]
         self.maxPrice = [0.0, 0.0]
+        self.cutTimes = [0, 0]
+        self.backMoney = [0.0, 0.0]
+        self.backStack = [0, 0]
         
         
     # 计算交易手续费
@@ -106,7 +112,35 @@ class simulater(object):
         if self.bDoCut[code] == True:
             # 执行止盈操作，卖出持仓股票的一半
             num = int(self.position[code][days]/200.0)*100.0
-            print(days, code, num, self.position[code][days])
+            # print(days, code, num, self.position[code][days])
+            if self.cutTimes[code] < 4 and num > 100:
+                # 进行止盈相关操作
+                price = self.data[code]["close"][days]
+                fee = self.getFee(num, price)
+                self.fee[code][days] += fee
+                total = price*num - fee
+                self.backMoney[code] += total
+                self.backStack[code] += num
+                # 在总的数据中增加止盈的数据
+                #print(days, code, self.position[code][days], num, self.position[code][days]-num)
+                # 下面这行出错，改天来改
+                # print(self.position[code][days])
+                #self.position[code][days] = self.position[code][days] - num
+                self.position[code][days] -= num
+                # print(self.position[code][days])
+                self.value[code][days] = self.position[code][days] * price
+                # print(self.value[code][days])
+                # 更新止盈次数，将股票现值设为最高值
+                self.cutTimes[code] += 1
+                self.maxPrice[code] = price
+                #print(days, code, self.backStack[code])
+                # 更新现金流量表，算xirr用的
+                v = total * (-1)
+                d = GetHistoryData.TransfDate2Datetime(self.data[code]["date"][days])
+                self.cashFlow[code].append(v)
+                self.cashDate[code].append(d)
+                self.totalCashFlow.append(v)
+                self.totalCashDate.append(d)
     
         
     # 计算给定资金能买多少股票
@@ -243,6 +277,7 @@ class simulater(object):
         plt.savefig("simulater_05.png")
         
         plt.figure()
+        print(self.xirr[0])
         plt.plot(self.xirr[0], label = "300")
         plt.plot(self.xirr[1], label = "nas")
         plt.plot(self.totalXirr, label = "total")
@@ -270,7 +305,9 @@ class simulater(object):
             v += value
             self.cashFlow[code].append(value)
             self.cashDate[code].append(date)
+            # print(code, days, value)
             retXIRR = xirr.xirr(self.cashFlow[code], self.cashDate[code])
+            # print(code, days, retXIRR)
             # 开始的时候会出现无限大的值，所以加这个
             # 画图得知，前150天数据不靠谱，都设成0吧
             if days <= 150:
@@ -296,16 +333,16 @@ class simulater(object):
     # 交易循环
     def run(self):
         for days in range(self.totalTimes):
-            # 如果设定了要进行止盈操作，先判断是否到了止盈点
-            if self.bCut == True:
-                for code in range(2):
-                    if self.isCut(code, days):
-                        self.doCut(code, days)
             if days % self.freq == 0: #进行交易
                 self.doTrade(days)
             else:
                 for code in range(2):
                     self.update(code, days)
+            # 如果设定了要进行止盈操作，先判断是否到了止盈点
+            if self.bCut == True:
+                for code in range(2):
+                    if self.isCut(code, days):
+                        self.doCut(code, days)
             self.combine(days)
             self.cal_xirr(days)
             # print(self.xirr[0][days], self.xirr[1][days])
