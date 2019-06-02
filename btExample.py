@@ -91,13 +91,96 @@ def baseTest(data):
      bt.algos.Rebalance()
     ])
     return bt.Backtest(s, data)
+    
+
+# 交叉移动平均线策略
+class WeighTarget(bt.Algo):
+    def __init__(self, target_weights):
+        self.tw = target_weights
+        
+    def __call__(self, target):
+        if target.now in self.tw.index:
+            w = self.tw.ix[target.now]
+            target.temp["weights"] = w.dropna()
+        return True
+        
+    
+def SMA_cross(data):
+    sma50 = data.rolling(50).mean()
+    sma200 = data.rolling(200).mean()
+    
+    tw = sma200.copy()
+    tw[sma50 > sma200] = 1.0
+    tw[sma50 <= sma200] = -1.0
+    
+    tw[sma200.isnull()] = 0.0
+    
+    tmp = bt.merge(tw, data, sma50, sma200)
+    tmp.columns = ["tw", "price", "sma50", "sma200"]
+    # tmp.columns = ['tw', 'price', 'sma50', 'sma200']
+    ax = tmp.plot(figsize = (15, 5), secondary_y = ["tw"])
+    plt.savefig("smacross.png")
+    
+    ma_cross = bt.Strategy("ma_cross",
+    [WeighTarget(tw),
+     bt.algos.Rebalance()
+    ])
+    t = bt.Backtest(ma_cross, data)
+    res = bt.run(t)
+    res.display()
+    
+    res.plot()
+    plt.savefig("smacross_res")
+    
+    
+# 可以指定不同股票的smacross策略
+def sma_cross(ticker, start = "2010-01-01", short_ma = 50, long_ma = 200, name = "ma_cross"):
+    data = bt.get(ticker, start = start)
+    short_sma = data.rolling(short_ma).mean()
+    long_sma = data.rolling(long_ma).mean()
+    
+    tw = long_sma.copy()
+    tw[short_sma > long_sma] = 1.0
+    tw[short_sma <= long_sma] = -1.0
+    tw[long_sma.isnull()] = 0.0
+    
+    s = bt.Strategy(name, 
+    [WeighTarget(tw),
+     bt.algos.Rebalance()
+    ], [ticker])
+    
+    return bt.Backtest(s, data)
 
 
 if __name__ == "__main__":
     # 获取数据
-    data = getData()
-    print(data.head())
-    print(data.describe())
-    SMA(data)
+    # data = getData()
+    #data = bt.get("spy", start = "2010-01-01")
+    #print(data.head())
+    #print(data.describe())
+    # SMA(data)
+    #SMA_cross(data)
+    t1 = sma_cross("aapl", name = "aapl_mass_cross")
+    t2 = sma_cross("msft", name = "msft_mass_cross")
+    
+    res = bt.run(t1, t2)
+    
+    data = bt.merge(res["aapl_mass_cross"].prices,
+    res["msft_mass_cross"].prices)
+    
+    s = bt.Strategy('s',
+    [bt.algos.SelectAll(),
+     bt.algos.WeighInvVol(),
+     bt.algos.Rebalance()
+    ])
+    
+    t = bt.Backtest(s, data)
+    res = bt.run(t)
+    
+    res.display()
+    res.plot()
+    plt.savefig("multi_smacross.png")
+    res.plot_weights()
+    plt.savefig("multi_smacross_weights.png")
     
     
